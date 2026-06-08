@@ -1,5 +1,5 @@
-from sqlalchemy import Index, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.db import ModelBase
 
@@ -14,9 +14,13 @@ class File(ModelBase):
     )
 
     name: Mapped[str] = mapped_column(
-        String(128), nullable=True
+        String(256), nullable=True
     )
 
     context: Mapped[str] = mapped_column(
-        String(128), nullable=True
+        Text, nullable=True
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=True, default="pending"
     )

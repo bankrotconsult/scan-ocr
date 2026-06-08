@@ -1,0 +1,33 @@
+services:
+  scan-app:
+    build: .
+    restart: always
+    command: uvicorn src.app:app --host 0.0.0.0 --port 8005 --reload
+    ports:
+      - "8005:8005"
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+      - /home/rudich/scan-files:/home/rudich/scan-files
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      UPLOADS_DIR: /app/uploads
+      SCAN_FILES_DIR: /home/rudich/scan-files
+
+  postgres:
+    image: postgres:16
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

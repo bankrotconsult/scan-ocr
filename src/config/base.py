@@ -15,3 +15,7 @@ class BaseConfig:
     SYNC_DATABASE_URL = os.getenv("SYNC_DATABASE_URL")
 
     DEBUG = os.getenv("DEBUG", True)
+
+    UPLOADS_DIR = os.getenv("UPLOADS_DIR", "./uploads")
+
+    SCAN_FILES_DIR = os.getenv("SCAN_FILES_DIR", "/home/rudich/scan-files")

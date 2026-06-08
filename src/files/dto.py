@@ -6,9 +6,11 @@ class FileResponseDTO:
     id: int
     name: str | None = None
     context: str | None = None
+    status: str | None = None
 
 
 @dataclass
 class FileCreateDTO:
     name: str | None = None
     context: str | None = None
+    status: str = "pending"

@@ -1,9 +1,9 @@
 ```bash
-docker compose exec app alembic revision --autogenerate
-docker compose exec app alembic upgrade head
+docker compose exec scan-app alembic revision --autogenerate
+docker compose exec scan-app alembic upgrade head
 ```
 
 ### Connect Admin (dev)
 ```bash
-docker compose -f docker-compose-dev.yml exec app python -m src.scripts.create_admin
+docker compose -f docker-compose-dev.yml exec scan-app python -m src.scripts.create_admin
 ```
