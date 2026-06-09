@@ -121,6 +121,7 @@
         <div class="hint">Каждая выбранная страница станет началом нового сегмента</div>
       </div>
       <div class="actions">
+        <button class="btn btn-outline" id="strip-btn" onclick="stripEvenPages()">Убрать чётные страницы</button>
         <span class="selection-info" id="selection-info">Не выбрано</span>
         <button class="btn btn-primary" id="process-btn" disabled onclick="processSplit()">Разделить и обработать</button>
       </div>
@@ -232,6 +233,27 @@
       const sorted = [...selectedPages].sort((a, b) => a - b);
       info.textContent = `Выбрано ${count}: стр. ${sorted.join(', ')}`;
       btn.disabled = false;
+    }
+  }
+
+  async function stripEvenPages() {
+    document.getElementById('strip-btn').disabled = true;
+    showLoading('Удаление чётных страниц...');
+    try {
+      const res = await fetch(`/split/strip-even/${pdfToken}`, { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      totalPages = data.page_count;
+      selectedPages.clear();
+      updateSelectionInfo();
+      document.getElementById('viewer-title').textContent =
+        `Выберите страницы-разделители (всего ${totalPages} стр.)`;
+      await renderPages();
+    } catch (e) {
+      alert('Ошибка: ' + e.message);
+      document.getElementById('strip-btn').disabled = false;
+    } finally {
+      hideLoading();
     }
   }
 

@@ -8,6 +8,17 @@ def get_page_count(path: str) -> int:
     return len(PdfReader(path).pages)
 
 
+def strip_even_pages(token: str, uploads_dir: str) -> int:
+    path = os.path.join(uploads_dir, f"{token}.pdf")
+    reader = PdfReader(path)
+    writer = PdfWriter()
+    for i in range(0, len(reader.pages), 2):
+        writer.add_page(reader.pages[i])
+    with open(path, "wb") as f:
+        writer.write(f)
+    return len(writer.pages)
+
+
 def split_pdf(source_path: str, split_pages: list[int], uploads_dir: str) -> list[str]:
     reader = PdfReader(source_path)
     total = len(reader.pages)

@@ -9,3 +9,7 @@ class UploadResponse(BaseModel):
 class ProcessRequest(BaseModel):
     token: str
     split_pages: list[int]
+
+
+class StripEvenResponse(BaseModel):
+    page_count: int
