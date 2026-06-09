@@ -8,6 +8,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ./src:/app/src
       - ./uploads:/app/uploads
       - /home/rudich/scan-files:/home/rudich/scan-files
     depends_on:

@@ -14,7 +14,7 @@ from src.files.dto import FileCreateDTO
 from src.files.repository import FileRepository
 from src.files.schemas import FileResponseSchema
 from src.files.service import FileService
-from src.llm import OllamaService
+from src.llm import OllamaService, normalize_org
 from src.ocr import PaddleOCRService
 
 
@@ -25,9 +25,9 @@ router = APIRouter(
 
 
 def _safe_filename(org: str, person: str) -> str:
-    combined = f"{org}_{person}"
+    combined = f"{org} {person}"
     safe = re.sub(r'[\\/:*?"<>|\n\r\t]', '', combined).strip()
-    return safe if safe and safe != '_' else str(uuid.uuid4())
+    return safe if safe and safe not in ('', ' ') else str(uuid.uuid4())
 
 
 def _unique_dest_path(dest_dir: str, base_name: str, ext: str) -> str:
@@ -42,7 +42,8 @@ def _unique_dest_path(dest_dir: str, base_name: str, ext: str) -> str:
 async def _run_ocr(file_id: int, file_path: str) -> None:
     try:
         text = await PaddleOCRService().predict(file_path)
-        org, person = await OllamaService().analyze_document(text)
+        raw_org, person = await OllamaService().analyze_document(text)
+        org = normalize_org(raw_org)
 
         base_name = _safe_filename(org, person)
         ext = os.path.splitext(file_path)[1]
