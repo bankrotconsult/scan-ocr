@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Splitter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    h1 { font-size: 24px; font-weight: 600; margin-bottom: 32px; color: #111; }
+
+    /* Upload */
+    .upload-box {
+      background: #fff; border: 2px dashed #ccc; border-radius: 12px;
+      padding: 48px; text-align: center; cursor: pointer; transition: border-color .2s;
+    }
+    .upload-box:hover { border-color: #f97316; }
+    .upload-box input { display: none; }
+    .upload-box label { cursor: pointer; font-size: 16px; color: #666; }
+    .upload-box label span { color: #f97316; font-weight: 600; }
+    #file-name { margin-top: 12px; font-size: 14px; color: #888; }
+    .btn {
+      display: inline-block; padding: 10px 24px; border-radius: 8px; font-size: 15px;
+      font-weight: 500; cursor: pointer; border: none; transition: background .2s;
+    }
+    .btn-primary { background: #f97316; color: #fff; }
+    .btn-primary:hover { background: #ea6c0f; }
+    .btn-primary:disabled { background: #fbd0b0; cursor: not-allowed; }
+    .btn-outline { background: #fff; color: #f97316; border: 2px solid #f97316; }
+    .btn-outline:hover { background: #fff7f2; }
+    #upload-btn { margin-top: 20px; }
+
+    /* Viewer */
+    #viewer-section { display: none; }
+    .viewer-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .viewer-header h2 { font-size: 18px; font-weight: 600; }
+    .hint { font-size: 13px; color: #888; margin-top: 4px; }
+    .selection-info { font-size: 14px; color: #f97316; font-weight: 500; }
+
+    .pages-grid { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+    .page-card {
+      position: relative; cursor: pointer; border-radius: 8px;
+      border: 3px solid transparent; transition: border-color .15s, box-shadow .15s;
+      background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    .page-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+    .page-card.selected { border-color: #f97316; }
+    .page-card canvas { display: block; border-radius: 6px; }
+    .page-num {
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.55); color: #fff; font-size: 11px;
+      padding: 2px 7px; border-radius: 10px; pointer-events: none;
+    }
+    .page-check {
+      display: none; position: absolute; top: 6px; right: 6px;
+      width: 22px; height: 22px; background: #f97316; border-radius: 50%;
+      align-items: center; justify-content: center; color: #fff; font-size: 13px;
+    }
+    .page-card.selected .page-check { display: flex; }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block; width: 18px; height: 18px; border: 2px solid #fff;
+      border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Results */
+    #results-section { display: none; margin-top: 32px; }
+    #results-section h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    th { background: #f9f9f9; text-align: left; padding: 12px 16px; font-size: 13px; color: #666; font-weight: 500; border-bottom: 1px solid #eee; }
+    td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;
+    }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-done    { background: #d1fae5; color: #065f46; }
+    .badge-error   { background: #fee2e2; color: #991b1b; }
+
+    .actions { display: flex; gap: 12px; align-items: center; }
+    #reset-btn { margin-top: 20px; }
+
+    /* Loading overlay */
+    #loading { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.75); z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 16px; font-size: 16px; color: #555; }
+    #loading .big-spinner { width: 42px; height: 42px; border: 4px solid #f97316; border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+  </style>
+</head>
+<body>
+<div id="loading">
+  <div class="big-spinner"></div>
+  <span id="loading-text">Загрузка...</span>
+</div>
+
+<div class="container">
+  <h1>PDF Splitter</h1>
+
+  <!-- Step 1: Upload -->
+  <div id="upload-section">
+    <div class="upload-box" onclick="document.getElementById('file-input').click()">
+      <label>
+        <svg width="40" height="40" fill="none" stroke="#ccc" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg><br>
+        Перетащите PDF или <span>выберите файл</span>
+      </label>
+      <input type="file" id="file-input" accept=".pdf" onchange="onFileSelected()">
+      <div id="file-name"></div>
+    </div>
+    <div style="text-align:center">
+      <button class="btn btn-primary" id="upload-btn" disabled onclick="uploadPDF()">Загрузить и открыть</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Viewer -->
+  <div id="viewer-section">
+    <div class="viewer-header">
+      <div>
+        <h2 id="viewer-title">Выберите страницы-разделители</h2>
+        <div class="hint">Каждая выбранная страница станет началом нового сегмента</div>
+      </div>
+      <div class="actions">
+        <span class="selection-info" id="selection-info">Не выбрано</span>
+        <button class="btn btn-primary" id="process-btn" disabled onclick="processSplit()">Разделить и обработать</button>
+      </div>
+    </div>
+    <div class="pages-grid" id="pages-grid"></div>
+  </div>
+
+  <!-- Step 3: Results -->
+  <div id="results-section">
+    <h2>Созданные записи</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Файл</th><th>Статус</th></tr></thead>
+      <tbody id="results-body"></tbody>
+    </table>
+    <button class="btn btn-outline" id="reset-btn" onclick="resetAll()">Загрузить ещё</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  let pdfToken = null;
+  let totalPages = 0;
+  const selectedPages = new Set();
+
+  function onFileSelected() {
+    const file = document.getElementById('file-input').files[0];
+    document.getElementById('file-name').textContent = file ? file.name : '';
+    document.getElementById('upload-btn').disabled = !file;
+  }
+
+  function showLoading(text) {
+    document.getElementById('loading-text').textContent = text;
+    document.getElementById('loading').style.display = 'flex';
+  }
+  function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+  }
+
+  async function uploadPDF() {
+    const file = document.getElementById('file-input').files[0];
+    if (!file) return;
+    showLoading('Загрузка PDF...');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/split/upload', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      pdfToken = data.token;
+      totalPages = data.page_count;
+      document.getElementById('upload-section').style.display = 'none';
+      document.getElementById('viewer-section').style.display = 'block';
+      document.getElementById('viewer-title').textContent =
+        `Выберите страницы-разделители (всего ${totalPages} стр.)`;
+      await renderPages();
+    } catch (e) {
+      alert('Ошибка загрузки: ' + e.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function renderPages() {
+    showLoading('Рендеринг страниц...');
+    const grid = document.getElementById('pages-grid');
+    grid.innerHTML = '';
+    const pdfDoc = await pdfjsLib.getDocument(`/split/pdf/${pdfToken}`).promise;
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      const page = await pdfDoc.getPage(i);
+      const viewport = page.getViewport({ scale: 0.28 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+      const card = document.createElement('div');
+      card.className = 'page-card';
+      card.dataset.page = i;
+      card.innerHTML = `<span class="page-num">${i}</span><span class="page-check">✓</span>`;
+      card.insertBefore(canvas, card.firstChild);
+      card.addEventListener('click', () => togglePage(i, card));
+      grid.appendChild(card);
+    }
+    hideLoading();
+  }
+
+  function togglePage(num, card) {
+    if (selectedPages.has(num)) {
+      selectedPages.delete(num);
+      card.classList.remove('selected');
+    } else {
+      selectedPages.add(num);
+      card.classList.add('selected');
+    }
+    updateSelectionInfo();
+  }
+
+  function updateSelectionInfo() {
+    const count = selectedPages.size;
+    const info = document.getElementById('selection-info');
+    const btn = document.getElementById('process-btn');
+    if (count === 0) {
+      info.textContent = 'Не выбрано';
+      btn.disabled = true;
+    } else {
+      const sorted = [...selectedPages].sort((a, b) => a - b);
+      info.textContent = `Выбрано ${count}: стр. ${sorted.join(', ')}`;
+      btn.disabled = false;
+    }
+  }
+
+  async function processSplit() {
+    if (selectedPages.size === 0) return;
+    showLoading('Разделение и запуск OCR...');
+    try {
+      const sorted = [...selectedPages].sort((a, b) => a - b);
+      const res = await fetch('/split/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: pdfToken, split_pages: sorted }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const records = await res.json();
+      showResults(records);
+    } catch (e) {
+      alert('Ошибка: ' + e.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function showResults(records) {
+    document.getElementById('viewer-section').style.display = 'none';
+    const tbody = document.getElementById('results-body');
+    tbody.innerHTML = records.map(r => `
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.name}</td>
+        <td><span class="badge badge-${r.status}">${r.status}</span></td>
+      </tr>`).join('');
+    document.getElementById('results-section').style.display = 'block';
+  }
+
+  function resetAll() {
+    pdfToken = null;
+    totalPages = 0;
+    selectedPages.clear();
+    document.getElementById('pages-grid').innerHTML = '';
+    document.getElementById('results-body').innerHTML = '';
+    document.getElementById('file-input').value = '';
+    document.getElementById('file-name').textContent = '';
+    document.getElementById('upload-btn').disabled = true;
+    document.getElementById('upload-section').style.display = 'block';
+    document.getElementById('viewer-section').style.display = 'none';
+    document.getElementById('results-section').style.display = 'none';
+  }
+</script>
+</body>
+</html>

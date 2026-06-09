@@ -32,6 +32,7 @@ init_admin(app)
 
 
 from src.files.routers import router as files_router
-
+from src.split.routers import router as split_router
 
 app.include_router(files_router)
+app.include_router(split_router)

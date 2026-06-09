@@ -19,6 +19,9 @@ sqladmin = "^0.27.2"
 paddleocr = "*"
 python-multipart = "*"
 itsdangerous = "*"
+pypdf = "*"
+jinja2 = "*"
+aiofiles = "*"
 
 
 [tool.poetry.group.dev.dependencies]
