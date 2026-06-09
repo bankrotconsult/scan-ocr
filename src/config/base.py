@@ -19,3 +19,7 @@ class BaseConfig:
     UPLOADS_DIR = os.getenv("UPLOADS_DIR", "./uploads")
 
     SCAN_FILES_DIR = os.getenv("SCAN_FILES_DIR", "/home/rudich/scan-files")
+
+    OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+
+    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")

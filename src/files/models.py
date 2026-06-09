@@ -17,6 +17,14 @@ class File(ModelBase):
         String(256), nullable=True
     )
 
+    org: Mapped[str] = mapped_column(
+        String(128), nullable=True
+    )
+
+    person: Mapped[str] = mapped_column(
+        String(256), nullable=True
+    )
+
     context: Mapped[str] = mapped_column(
         Text, nullable=True
     )

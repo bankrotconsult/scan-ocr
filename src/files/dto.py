@@ -5,6 +5,8 @@ from dataclasses import dataclass
 class FileResponseDTO:
     id: int
     name: str | None = None
+    org: str | None = None
+    person: str | None = None
     context: str | None = None
     status: str | None = None
 
@@ -12,5 +14,7 @@ class FileResponseDTO:
 @dataclass
 class FileCreateDTO:
     name: str | None = None
+    org: str | None = None
+    person: str | None = None
     context: str | None = None
     status: str = "pending"

@@ -13,9 +13,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ollama:
+        condition: service_started
     environment:
       UPLOADS_DIR: /app/uploads
       SCAN_FILES_DIR: /home/rudich/scan-files
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: qwen2.5:3b
 
   postgres:
     image: postgres:16
@@ -29,5 +33,12 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama
+    restart: always
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   postgres_data:
+  ollama_data:

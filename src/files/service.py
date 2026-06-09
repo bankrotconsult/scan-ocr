@@ -15,5 +15,20 @@ class FileService:
     async def get_all(self) -> list[FileResponseDTO]:
         return await self.file_repository.get_all()
 
-    async def update_ocr_result(self, file_id: int, context: str, status: str) -> None:
-        await self.file_repository.update_ocr_result(file_id=file_id, context=context, status=status)
+    async def update_ocr_result(
+        self,
+        file_id: int,
+        context: str,
+        status: str,
+        name: str | None = None,
+        org: str | None = None,
+        person: str | None = None,
+    ) -> None:
+        await self.file_repository.update_ocr_result(
+            file_id=file_id,
+            context=context,
+            status=status,
+            name=name,
+            org=org,
+            person=person,
+        )

@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import uuid
 from dataclasses import asdict
@@ -13,6 +14,7 @@ from src.files.dto import FileCreateDTO
 from src.files.repository import FileRepository
 from src.files.schemas import FileResponseSchema
 from src.files.service import FileService
+from src.llm import OllamaService
 from src.ocr import PaddleOCRService
 
 
@@ -22,19 +24,43 @@ router = APIRouter(
 )
 
 
+def _safe_filename(org: str, person: str) -> str:
+    combined = f"{org}_{person}"
+    safe = re.sub(r'[\\/:*?"<>|\n\r\t]', '', combined).strip()
+    return safe if safe and safe != '_' else str(uuid.uuid4())
+
+
+def _unique_dest_path(dest_dir: str, base_name: str, ext: str) -> str:
+    path = os.path.join(dest_dir, base_name + ext)
+    counter = 2
+    while os.path.exists(path):
+        path = os.path.join(dest_dir, f"{base_name} ({counter}){ext}")
+        counter += 1
+    return path
+
+
 async def _run_ocr(file_id: int, file_path: str) -> None:
     try:
         text = await PaddleOCRService().predict(file_path)
+        org, person = await OllamaService().analyze_document(text)
 
+        base_name = _safe_filename(org, person)
         ext = os.path.splitext(file_path)[1]
         dest_dir = BaseConfig.SCAN_FILES_DIR
         os.makedirs(dest_dir, exist_ok=True)
-        dest_path = os.path.join(dest_dir, f"{uuid.uuid4()}{ext}")
+        dest_path = _unique_dest_path(dest_dir, base_name, ext)
         shutil.copy2(file_path, dest_path)
         os.remove(file_path)
 
         async with db_session() as s:
-            await FileService(FileRepository(s)).update_ocr_result(file_id, text, "done")
+            await FileService(FileRepository(s)).update_ocr_result(
+                file_id=file_id,
+                context=text,
+                status="done",
+                name=os.path.basename(dest_path),
+                org=org,
+                person=person,
+            )
     except Exception as e:
         print(f"OCR error for file {file_id}: {e}")
         if os.path.exists(file_path):
