@@ -17,6 +17,7 @@ class FileRepository(SQLAlchemyRepository):
             org=file.org,
             person=file.person,
             context=file.context,
+            context_blocks=file.context_blocks,
             status=file.status,
         )
 
@@ -44,6 +45,7 @@ class FileRepository(SQLAlchemyRepository):
         name: str | None = None,
         org: str | None = None,
         person: str | None = None,
+        context_blocks: str | None = None,
     ) -> None:
         values: dict = {"context": context, "status": status}
         if name is not None:
@@ -52,6 +54,8 @@ class FileRepository(SQLAlchemyRepository):
             values["org"] = org
         if person is not None:
             values["person"] = person
+        if context_blocks is not None:
+            values["context_blocks"] = context_blocks
         await self.session.execute(
             update(self.model).where(self.model.id == file_id).values(**values)
         )

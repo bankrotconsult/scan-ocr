@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import shutil
@@ -41,8 +42,9 @@ def _unique_dest_path(dest_dir: str, base_name: str, ext: str) -> str:
 
 async def _run_ocr(file_id: int, file_path: str) -> None:
     try:
-        text = await PaddleOCRService().predict(file_path)
-        raw_org, person = await OllamaService().analyze_document(text)
+        blocks = await PaddleOCRService().predict_structured(file_path)
+        text = "\n".join(b["text"] for b in blocks)
+        raw_org, person = await OllamaService().analyze_document(text, blocks)
         org = apply_org_rules(raw_org, text)
 
         base_name = _safe_filename(org, person)
@@ -57,6 +59,7 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
             await FileService(FileRepository(s)).update_ocr_result(
                 file_id=file_id,
                 context=text,
+                context_blocks=json.dumps(blocks, ensure_ascii=False),
                 status="done",
                 name=os.path.basename(dest_path),
                 org=org,

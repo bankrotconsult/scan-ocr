@@ -8,6 +8,7 @@ class FileResponseDTO:
     org: str | None = None
     person: str | None = None
     context: str | None = None
+    context_blocks: str | None = None
     status: str | None = None
 
 
@@ -17,4 +18,5 @@ class FileCreateDTO:
     org: str | None = None
     person: str | None = None
     context: str | None = None
+    context_blocks: str | None = None
     status: str = "pending"

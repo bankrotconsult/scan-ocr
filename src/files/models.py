@@ -29,6 +29,10 @@ class File(ModelBase):
         Text, nullable=True
     )
 
+    context_blocks: Mapped[str] = mapped_column(
+        Text, nullable=True
+    )
+
     status: Mapped[str] = mapped_column(
         String(32), nullable=True, default="pending"
     )

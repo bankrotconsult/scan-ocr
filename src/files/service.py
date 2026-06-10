@@ -23,6 +23,7 @@ class FileService:
         name: str | None = None,
         org: str | None = None,
         person: str | None = None,
+        context_blocks: str | None = None,
     ) -> None:
         await self.file_repository.update_ocr_result(
             file_id=file_id,
@@ -31,4 +32,5 @@ class FileService:
             name=name,
             org=org,
             person=person,
+            context_blocks=context_blocks,
         )

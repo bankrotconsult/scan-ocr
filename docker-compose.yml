@@ -20,7 +20,7 @@ services:
       UPLOADS_DIR: /app/uploads
       SCAN_FILES_DIR: /home/rudich/scan-files
       OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: qwen2.5:3b
+      OLLAMA_MODEL: qwen2.5:7b
 
   postgres:
     image: postgres:16
