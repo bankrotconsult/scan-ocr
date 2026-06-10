@@ -194,10 +194,13 @@
     const pdfDoc = await pdfjsLib.getDocument(`/split/pdf/${pdfToken}`).promise;
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const page = await pdfDoc.getPage(i);
-      const viewport = page.getViewport({ scale: 0.28 });
+      const pixelRatio = window.devicePixelRatio || 1;
+      const viewport = page.getViewport({ scale: 0.3 * pixelRatio });
       const canvas = document.createElement('canvas');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
+      canvas.style.width  = (viewport.width  / pixelRatio) + 'px';
+      canvas.style.height = (viewport.height / pixelRatio) + 'px';
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
 
       const card = document.createElement('div');

@@ -1,3 +1,5 @@
+import re
+
 _ORG_ALIASES: dict[str, str] = {
     "мвд": "МВД",
     "mvd": "МВД",
@@ -17,17 +19,56 @@ _ORG_ALIASES: dict[str, str] = {
     "прокуратура": "Прокуратура",
     "следственный комитет": "СК",
     "ск": "СК",
+    "сфр": "СФР",
+    "пфр": "СФР",
+    "пенсионный фонд": "СФР",
+    "фонд социального страхования": "СФР",
 }
-
-_VEHICLE_KEYWORDS = (
-    "гибдд", "госавтоинспекци", "транспортн", "автомобил", "водительск",
-    "регистрационный знак", "птс", "стс", "дтп", "осаго", "мрэо",
-    "госномер", "гос. номер", "vin", "постановка на учёт", "снятие с учёта",
-    "регистрационных действий", "свидетельство о регистрации тс",
-)
 
 _ZAGS_KEYWORDS = (
     "загс", "записи актов гражданского",
+)
+
+_RTK_KEYWORDS = (
+    "включении требований в реестр требований кредиторов",
+    "включении требований залогового кредитора в реестр требований кредиторов должника",
+    "включении требований кредиторов задолженности по договору",
+    "включении в реестр требований кредиторов",
+    "включении требований в реестр кредиторов",
+)
+
+_COURT_KEYWORDS = (
+    "судебный приказ", "мировой судья", "районный суд", "городской суд",
+)
+
+# Synced with prompt: only ГИБДД and Госавтоинспекция
+_VEHICLE_KEYWORDS = (
+    "гибдд", "госавтоинспекци",
+)
+
+_FNS_KEYWORDS = (
+    "фнс", "федеральная налоговая служба", "налоговая служба",
+)
+
+_SFR_KEYWORDS = (
+    "пенсионного и социального страхования",
+    "социальный фонд",
+    "фонд социального",
+    "сфр",
+    "пфр",
+)
+
+# Strict court case format: А73-19762/2024 or А73-19762-2024
+_CASE_RE = re.compile(
+    r'(?:дело\s*[№#N]|дело\s+номер|номер\s+дела|[№#]\s*дела)[:\s]*'
+    r'([А-ЯЁA-Z]\d{2}-\d{3,6}[/-](?:19|20)\d{2})\b',
+    re.IGNORECASE,
+)
+
+# Bank name extraction: "Сбербанк банк" or "Банк ВТБ" etc.
+_BANK_NAME_RE = re.compile(
+    r'(?:«|")?([А-ЯЁA-ZА-Яа-яa-z]{2,30}(?:\s+[А-ЯЁA-ZА-Яа-яa-z.]{2,20})?)\s+[Бб]анк'
+    r'|[Бб]анк\s+(?:«|")?([А-ЯЁA-ZА-Яа-яa-z.]{2,30}(?:\s+[А-ЯЁA-ZА-Яа-яa-z.]{2,20})?)',
 )
 
 
@@ -36,16 +77,51 @@ def normalize_org(raw: str) -> str:
     return _ORG_ALIASES.get(key, raw.strip())
 
 
-def apply_org_rules(raw_org: str, text: str) -> str:
-    """Apply deterministic overrides based on OCR text before/after LLM result."""
-    lower = text.lower()
+def _extract_bank_name(header: str) -> str:
+    m = _BANK_NAME_RE.search(header)
+    if m:
+        name = (m.group(1) or m.group(2) or "").strip().strip('«»"').strip()
+        return f"Банк {name}" if name else "Банк"
+    return "Банк"
 
-    # ЗАГС takes highest priority — keyword match overrides LLM
+
+def apply_org_rules(raw_org: str, text: str) -> str:
+    lower = text.lower()
+    header = lower[:600]
+
+    if "мчс" in lower:
+        return "МЧС"
+
     if any(kw in lower for kw in _ZAGS_KEYWORDS):
         return "ЗАГС"
 
-    # ГИБДД: МВД in text + any vehicle keyword anywhere in text
+    if any(kw in lower for kw in _RTK_KEYWORDS):
+        return "РТК"
+
+    if any(kw in lower for kw in _COURT_KEYWORDS):
+        return "СУД"
+
     if "мвд" in lower and any(kw in lower for kw in _VEHICLE_KEYWORDS):
         return "ГИБДД"
 
+    if any(kw in lower for kw in _FNS_KEYWORDS):
+        return "ФНС"
+
+    if any(kw in lower for kw in _SFR_KEYWORDS):
+        return "СФР"
+
+    if "банк" in header:
+        if "банк" in raw_org.lower():
+            return normalize_org(raw_org)
+        return _extract_bank_name(text[:600])
+
+    # МВД — explicit second-to-last, before generic fallback
+    if "мвд" in lower:
+        return "МВД"
+
     return normalize_org(raw_org)
+
+
+def extract_case_number(text: str) -> str:
+    m = _CASE_RE.search(text)
+    return m.group(1) if m else "UNKNOWN"

@@ -24,7 +24,7 @@ class OllamaService:
         self,
         text: str,
         blocks: list[dict] | None = None,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str, str]:
         body = _build_body(text, blocks)
         user_content = USER_PROMPT.format(body=body)
 
@@ -46,9 +46,10 @@ class OllamaService:
                 resp.raise_for_status()
                 raw = resp.json().get("message", {}).get("content", "{}")
                 result = json.loads(raw)
-                org = (result.get("org") or "UNKNOWN").strip() or "UNKNOWN"
+                org    = (result.get("org")    or "UNKNOWN").strip() or "UNKNOWN"
                 person = (result.get("person") or "UNKNOWN").strip() or "UNKNOWN"
-                return org, person
+                case   = (result.get("case")   or "UNKNOWN").strip() or "UNKNOWN"
+                return org, person, case
         except Exception as e:
             print(f"LLM analyze error: {e}")
-            return "UNKNOWN", str(uuid.uuid4())
+            return "UNKNOWN", str(uuid.uuid4()), "UNKNOWN"

@@ -15,7 +15,7 @@ from src.files.dto import FileCreateDTO
 from src.files.repository import FileRepository
 from src.files.schemas import FileResponseSchema
 from src.files.service import FileService
-from src.llm import OllamaService, apply_org_rules
+from src.llm import OllamaService, apply_org_rules, extract_case_number
 from src.ocr import PaddleOCRService
 
 
@@ -25,10 +25,12 @@ router = APIRouter(
 )
 
 
-def _safe_filename(org: str, person: str) -> str:
-    combined = f"{org} {person}"
+def _safe_filename(org: str, person: str, case: str = "UNKNOWN") -> str:
+    case_safe = case.replace("/", "-").replace("\\", "-") if case != "UNKNOWN" else ""
+    parts = [p for p in [org, person, case_safe] if p]
+    combined = " ".join(parts)
     safe = re.sub(r'[\\/:*?"<>|\n\r\t]', '', combined).strip()
-    return safe if safe and safe not in ('', ' ') else str(uuid.uuid4())
+    return safe if safe else str(uuid.uuid4())
 
 
 def _unique_dest_path(dest_dir: str, base_name: str, ext: str) -> str:
@@ -44,10 +46,11 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
     try:
         blocks = await PaddleOCRService().predict_structured(file_path)
         text = "\n".join(b["text"] for b in blocks)
-        raw_org, person = await OllamaService().analyze_document(text, blocks)
+        raw_org, person, case_llm = await OllamaService().analyze_document(text, blocks)
         org = apply_org_rules(raw_org, text)
+        case = case_llm if case_llm != "UNKNOWN" else extract_case_number(text)
 
-        base_name = _safe_filename(org, person)
+        base_name = _safe_filename(org, person, case)
         ext = os.path.splitext(file_path)[1]
         dest_dir = BaseConfig.SCAN_FILES_DIR
         os.makedirs(dest_dir, exist_ok=True)
