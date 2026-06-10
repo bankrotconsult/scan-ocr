@@ -14,7 +14,7 @@ from src.files.dto import FileCreateDTO
 from src.files.repository import FileRepository
 from src.files.schemas import FileResponseSchema
 from src.files.service import FileService
-from src.llm import OllamaService, normalize_org
+from src.llm import OllamaService, apply_org_rules
 from src.ocr import PaddleOCRService
 
 
@@ -43,7 +43,7 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
     try:
         text = await PaddleOCRService().predict(file_path)
         raw_org, person = await OllamaService().analyze_document(text)
-        org = normalize_org(raw_org)
+        org = apply_org_rules(raw_org, text)
 
         base_name = _safe_filename(org, person)
         ext = os.path.splitext(file_path)[1]

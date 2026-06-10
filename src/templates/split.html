@@ -121,7 +121,7 @@
         <div class="hint">Каждая выбранная страница станет началом нового сегмента</div>
       </div>
       <div class="actions">
-        <button class="btn btn-outline" id="strip-btn" onclick="stripEvenPages()">Убрать чётные страницы</button>
+        <button class="btn btn-outline" id="delete-btn" disabled onclick="deleteSelectedPages()">Удалить выбранные</button>
         <span class="selection-info" id="selection-info">Не выбрано</span>
         <button class="btn btn-primary" id="process-btn" disabled onclick="processSplit()">Разделить и обработать</button>
       </div>
@@ -225,22 +225,30 @@
   function updateSelectionInfo() {
     const count = selectedPages.size;
     const info = document.getElementById('selection-info');
-    const btn = document.getElementById('process-btn');
+    const processBtn = document.getElementById('process-btn');
+    const deleteBtn = document.getElementById('delete-btn');
     if (count === 0) {
       info.textContent = 'Не выбрано';
-      btn.disabled = true;
+      processBtn.disabled = true;
+      deleteBtn.disabled = true;
     } else {
       const sorted = [...selectedPages].sort((a, b) => a - b);
       info.textContent = `Выбрано ${count}: стр. ${sorted.join(', ')}`;
-      btn.disabled = false;
+      processBtn.disabled = false;
+      deleteBtn.disabled = false;
     }
   }
 
-  async function stripEvenPages() {
-    document.getElementById('strip-btn').disabled = true;
-    showLoading('Удаление чётных страниц...');
+  async function deleteSelectedPages() {
+    if (selectedPages.size === 0) return;
+    const sorted = [...selectedPages].sort((a, b) => a - b);
+    showLoading('Удаление страниц...');
     try {
-      const res = await fetch(`/split/strip-even/${pdfToken}`, { method: 'POST' });
+      const res = await fetch(`/split/remove-pages/${pdfToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pages: sorted }),
+      });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       totalPages = data.page_count;
@@ -251,7 +259,6 @@
       await renderPages();
     } catch (e) {
       alert('Ошибка: ' + e.message);
-      document.getElementById('strip-btn').disabled = false;
     } finally {
       hideLoading();
     }

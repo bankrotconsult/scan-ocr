@@ -13,8 +13,8 @@ from src.files.repository import FileRepository
 from src.files.routers import _run_ocr
 from src.files.schemas import FileResponseSchema
 from src.files.service import FileService
-from src.split.schemas import ProcessRequest, StripEvenResponse, UploadResponse
-from src.split.service import get_page_count, split_pdf, strip_even_pages
+from src.split.schemas import ProcessRequest, RemovePagesRequest, StripEvenResponse, UploadResponse
+from src.split.service import get_page_count, remove_pages, split_pdf
 
 router = APIRouter(
     prefix="/split",
@@ -57,12 +57,14 @@ async def serve_pdf(token: str):
     return FileResponse(file_path, media_type="application/pdf")
 
 
-@router.post("/strip-even/{token}", response_model=StripEvenResponse)
-async def strip_even(token: str):
+@router.post("/remove-pages/{token}", response_model=StripEvenResponse)
+async def remove_pages_endpoint(token: str, body: RemovePagesRequest):
     source_path = os.path.join(BaseConfig.UPLOADS_DIR, f"{token}.pdf")
     if not os.path.exists(source_path):
         raise HTTPException(status_code=404, detail="Upload not found")
-    new_count = strip_even_pages(token, BaseConfig.UPLOADS_DIR)
+    if not body.pages:
+        raise HTTPException(status_code=400, detail="pages must not be empty")
+    new_count = remove_pages(token, body.pages, BaseConfig.UPLOADS_DIR)
     return StripEvenResponse(page_count=new_count)
 
 
