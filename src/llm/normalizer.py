@@ -23,15 +23,23 @@ _ORG_ALIASES: dict[str, str] = {
     "пфр": "СФР",
     "пенсионный фонд": "СФР",
     "фонд социального страхования": "СФР",
+    "ип": "ИП",
+    "индивидуальный предприниматель": "ИП",
 }
 
 _ZAGS_KEYWORDS = (
     "загс", "записи актов гражданского",
 )
 
+_IP_KEYWORDS = (
+    "индивидуальный предприниматель",
+)
+_IP_ABBREV_RE = re.compile(r'\bип\b', re.IGNORECASE)
+
 _RTK_KEYWORDS = (
     "включении требований в реестр требований кредиторов",
     "включении требований залогового кредитора в реестр требований кредиторов должника",
+    "включении требований залогового кредитора",
     "включении требований кредиторов задолженности по договору",
     "включении в реестр требований кредиторов",
     "включении требований в реестр кредиторов",
@@ -41,7 +49,6 @@ _COURT_KEYWORDS = (
     "судебный приказ", "мировой судья", "районный суд", "городской суд",
 )
 
-# Synced with prompt: only ГИБДД and Госавтоинспекция
 _VEHICLE_KEYWORDS = (
     "гибдд", "госавтоинспекци",
 )
@@ -56,6 +63,10 @@ _SFR_KEYWORDS = (
     "фонд социального",
     "сфр",
     "пфр",
+)
+
+_FSSF_KEYWORDS = (
+    "фссп", "федеральная служба судебных приставов",
 )
 
 # Strict court case format: А73-19762/2024 or А73-19762-2024
@@ -95,6 +106,9 @@ def apply_org_rules(raw_org: str, text: str) -> str:
     if any(kw in lower for kw in _ZAGS_KEYWORDS):
         return "ЗАГС"
 
+    if any(kw in lower for kw in _IP_KEYWORDS) or _IP_ABBREV_RE.search(lower):
+        return "ИП"
+
     if any(kw in lower for kw in _RTK_KEYWORDS):
         return "РТК"
 
@@ -109,6 +123,9 @@ def apply_org_rules(raw_org: str, text: str) -> str:
 
     if any(kw in lower for kw in _SFR_KEYWORDS):
         return "СФР"
+
+    if any(kw in lower for kw in _FSSF_KEYWORDS):
+        return "ФССП"
 
     if "банк" in header:
         if "банк" in raw_org.lower():
