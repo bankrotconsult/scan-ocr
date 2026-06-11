@@ -2,6 +2,7 @@ services:
   scan-app:
     build: .
     restart: always
+    user: "${APP_UID}:${APP_GID}"
     command: uvicorn src.app:app --host 0.0.0.0 --port 8005 --reload
     ports:
       - "8005:8005"
@@ -18,9 +19,10 @@ services:
         condition: service_started
     environment:
       UPLOADS_DIR: /app/uploads
-      SCAN_FILES_DIR: /home/rudich/scan-files
+      SCAN_FILES_DIR: /home/rudich/scan-files/test
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: qwen2.5:7b
+      HOME: /tmp
 
   postgres:
     image: postgres:16

@@ -25,12 +25,26 @@ router = APIRouter(
 )
 
 
-def _safe_filename(org: str, person: str, case: str = "UNKNOWN") -> str:
-    case_safe = case.replace("/", "-").replace("\\", "-") if case != "UNKNOWN" else ""
-    parts = [p for p in [org, person, case_safe] if p]
-    combined = " ".join(parts)
-    safe = re.sub(r'[\\/:*?"<>|\n\r\t]', '', combined).strip()
-    return safe if safe else str(uuid.uuid4())
+_PERSON_FALLBACK = "ФИО не найдены"
+_CASE_FALLBACK = "№ -"
+
+
+def _sanitize(value: str) -> str:
+    return re.sub(r'[\\/:*?"<>|\n\r\t]', '', value).strip()
+
+
+def _make_filename(org: str, person: str, case: str) -> str:
+    person_d = _sanitize(person) if person != "UNKNOWN" else _PERSON_FALLBACK
+    case_d = case.replace("/", "-").replace("\\", "-") if case != "UNKNOWN" else _CASE_FALLBACK
+    return f"{_sanitize(org)} | {person_d} | {case_d}"
+
+
+def _determine_dest_dir(person: str, case: str, root: str) -> str:
+    if person != "UNKNOWN" and case != "UNKNOWN":
+        case_safe = case.replace("/", "-").replace("\\", "-")
+        folder_client = _sanitize(f"{person} {case_safe}")
+        return os.path.join(root, folder_client, "Ответы")
+    return os.path.join(root, "Без номера дела")
 
 
 def _unique_dest_path(dest_dir: str, base_name: str, ext: str) -> str:
@@ -50,9 +64,9 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
         org = apply_org_rules(raw_org, text)
         case = case_llm if case_llm != "UNKNOWN" else extract_case_number(text)
 
-        base_name = _safe_filename(org, person, case)
+        base_name = _make_filename(org, person, case)
         ext = os.path.splitext(file_path)[1]
-        dest_dir = BaseConfig.SCAN_FILES_DIR
+        dest_dir = _determine_dest_dir(person, case, BaseConfig.SCAN_FILES_DIR)
         os.makedirs(dest_dir, exist_ok=True)
         dest_path = _unique_dest_path(dest_dir, base_name, ext)
         shutil.copy2(file_path, dest_path)
