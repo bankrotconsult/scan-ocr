@@ -9,6 +9,8 @@ from src.llm.prompts import SYSTEM_PROMPT, USER_PROMPT
 _MIN_SCORE = 0.5
 _MAX_CHARS = 5000
 
+_client = httpx.AsyncClient(timeout=120.0)
+
 
 def _build_body(text: str, blocks: list[dict] | None) -> str:
     if blocks:
@@ -29,27 +31,26 @@ class OllamaService:
         user_content = USER_PROMPT.format(body=body)
 
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                resp = await client.post(
-                    f"{BaseConfig.OLLAMA_URL}/api/chat",
-                    json={
-                        "model": BaseConfig.OLLAMA_MODEL,
-                        "messages": [
-                            {"role": "system", "content": SYSTEM_PROMPT},
-                            {"role": "user", "content": user_content},
-                        ],
-                        "stream": False,
-                        "format": "json",
-                        "options": {"temperature": 0},
-                    },
-                )
-                resp.raise_for_status()
-                raw = resp.json().get("message", {}).get("content", "{}")
-                result = json.loads(raw)
-                org    = (result.get("org")    or "UNKNOWN").strip() or "UNKNOWN"
-                person = (result.get("person") or "UNKNOWN").strip() or "UNKNOWN"
-                case   = (result.get("case")   or "UNKNOWN").strip() or "UNKNOWN"
-                return org, person, case
+            resp = await _client.post(
+                f"{BaseConfig.OLLAMA_URL}/api/chat",
+                json={
+                    "model": BaseConfig.OLLAMA_MODEL,
+                    "messages": [
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": user_content},
+                    ],
+                    "stream": False,
+                    "format": "json",
+                    "options": {"temperature": 0},
+                },
+            )
+            resp.raise_for_status()
+            raw = resp.json().get("message", {}).get("content", "{}")
+            result = json.loads(raw)
+            org    = (result.get("org")    or "UNKNOWN").strip() or "UNKNOWN"
+            person = (result.get("person") or "UNKNOWN").strip() or "UNKNOWN"
+            case   = (result.get("case")   or "UNKNOWN").strip() or "UNKNOWN"
+            return org, person, case
         except Exception as e:
             print(f"LLM analyze error: {e}")
             return "UNKNOWN", str(uuid.uuid4()), "UNKNOWN"

@@ -33,7 +33,7 @@ class PaddleOCRService:
         return []
 
     async def predict_structured(self, file_path: str) -> list[dict]:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, partial(self._run_structured, file_path))
 
     async def predict(self, file_path: str) -> str:

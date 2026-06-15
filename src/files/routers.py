@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -62,15 +63,16 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
         text = "\n".join(b["text"] for b in blocks)
         raw_org, person, case_llm = await OllamaService().analyze_document(text, blocks)
         org = apply_org_rules(raw_org, text)
-        case = case_llm if case_llm != "UNKNOWN" else extract_case_number(text)
+        case_from_llm = extract_case_number(case_llm) if case_llm != "UNKNOWN" else "UNKNOWN"
+        case = case_from_llm if case_from_llm != "UNKNOWN" else extract_case_number(text)
 
         base_name = _make_filename(org, person, case)
         ext = os.path.splitext(file_path)[1]
         dest_dir = _determine_dest_dir(person, case, BaseConfig.SCAN_FILES_DIR)
-        os.makedirs(dest_dir, exist_ok=True)
-        dest_path = _unique_dest_path(dest_dir, base_name, ext)
-        shutil.copy2(file_path, dest_path)
-        os.remove(file_path)
+        await asyncio.to_thread(os.makedirs, dest_dir, exist_ok=True)
+        dest_path = await asyncio.to_thread(_unique_dest_path, dest_dir, base_name, ext)
+        await asyncio.to_thread(shutil.copy2, file_path, dest_path)
+        await asyncio.to_thread(os.remove, file_path)
 
         async with db_session() as s:
             await FileService(FileRepository(s)).update_ocr_result(
@@ -84,8 +86,8 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
             )
     except Exception as e:
         print(f"OCR error for file {file_id}: {e}")
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        if await asyncio.to_thread(os.path.exists, file_path):
+            await asyncio.to_thread(os.remove, file_path)
         async with db_session() as s:
             await FileService(FileRepository(s)).update_ocr_result(file_id, "", "error")
 
