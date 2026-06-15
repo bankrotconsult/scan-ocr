@@ -16,7 +16,13 @@ from src.files.dto import FileCreateDTO
 from src.files.repository import FileRepository
 from src.files.schemas import FileResponseSchema
 from src.files.service import FileService
-from src.llm import OllamaService, apply_org_rules, extract_case_number
+from src.llm import (
+    OllamaService,
+    apply_org_rules,
+    extract_case_number,
+    lookup_case_by_fio,
+    lookup_person_by_case,
+)
 from src.ocr import PaddleOCRService
 
 
@@ -65,6 +71,15 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
         org = apply_org_rules(raw_org, text)
         case_from_llm = extract_case_number(case_llm) if case_llm != "UNKNOWN" else "UNKNOWN"
         case = case_from_llm if case_from_llm != "UNKNOWN" else extract_case_number(text)
+
+        if case != "UNKNOWN":
+            api_person = await lookup_person_by_case(case)
+            if api_person:
+                person = api_person
+        elif person != "UNKNOWN" and len(person.split()) >= 3:
+            api_case = await lookup_case_by_fio(person)
+            if api_case:
+                case = api_case
 
         base_name = _make_filename(org, person, case)
         ext = os.path.splitext(file_path)[1]

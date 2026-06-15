@@ -69,8 +69,8 @@ _FSSF_KEYWORDS = (
     "фссп", "федеральная служба судебных приставов",
 )
 
-# Case number format: А27-5158/2026 — letter А + 2 digits + dash + digits + /year
-_CASE_RE = re.compile(r'[АA]\d{2}-\d+/(?:19|20)\d{2}\b')
+# Matches А27-5158/2026 or А27-5158-2026; result is always normalized to slash form
+_CASE_RE = re.compile(r'[АA]\d{2}-\d+[/\-](?:19|20)\d{2}\b')
 
 # Bank name extraction: "Сбербанк банк" or "Банк ВТБ" etc.
 _BANK_NAME_RE = re.compile(
@@ -137,4 +137,7 @@ def apply_org_rules(raw_org: str, text: str) -> str:
 
 def extract_case_number(text: str) -> str:
     m = _CASE_RE.search(text)
-    return m.group(0) if m else "UNKNOWN"
+    if not m:
+        return "UNKNOWN"
+    # Always normalize separator before year to slash: А73-5702-2025 → А73-5702/2025
+    return re.sub(r'[-/]((?:19|20)\d{2})$', r'/\1', m.group(0))
