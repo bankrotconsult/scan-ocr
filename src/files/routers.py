@@ -35,6 +35,11 @@ router = APIRouter(
 _PERSON_FALLBACK = "ФИО не найдены"
 _CASE_FALLBACK = "№ -"
 
+_DIR_CLIENT    = "Ответы"
+_DIR_NO_CASE   = "Без номера дела"
+_DIR_BAD_CASE  = "Неизвестные номера дела"
+_DIR_NO_PERSON = "Неизвестное ФИО"
+
 
 def _sanitize(value: str) -> str:
     return re.sub(r'[\\/:*?"<>|\n\r\t]', '', value).strip()
@@ -46,12 +51,28 @@ def _make_filename(org: str, person: str, case: str) -> str:
     return f"{_sanitize(org)} | {person_d} | {case_d}"
 
 
-def _determine_dest_dir(person: str, case: str, root: str) -> str:
-    if person != "UNKNOWN" and case != "UNKNOWN":
-        case_safe = case.replace("/", "-").replace("\\", "-")
-        folder_client = _sanitize(f"{person} {case_safe}")
-        return os.path.join(root, folder_client, "Ответы")
-    return os.path.join(root, "Без номера дела")
+def _client_dest_dir(person: str, case: str, root: str) -> str:
+    case_safe = case.replace("/", "-").replace("\\", "-")
+    folder_client = _sanitize(f"{person} {case_safe}")
+    return os.path.join(root, folder_client, _DIR_CLIENT)
+
+
+def _split_fios(person: str) -> list[str]:
+    """Extract ordered list of 3-word FIOs from a string (comma or space separated)."""
+    candidates: list[str] = []
+    for chunk in (p.strip() for p in person.split(",") if p.strip()):
+        words = chunk.split()
+        for i in range(0, len(words), 3):
+            group = words[i:i + 3]
+            if len(group) == 3:
+                candidates.append(" ".join(group))
+    seen: set[str] = set()
+    result: list[str] = []
+    for fio in candidates:
+        if fio not in seen:
+            seen.add(fio)
+            result.append(fio)
+    return result
 
 
 def _unique_dest_path(dest_dir: str, base_name: str, ext: str) -> str:
@@ -72,18 +93,38 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
         case_from_llm = extract_case_number(case_llm) if case_llm != "UNKNOWN" else "UNKNOWN"
         case = case_from_llm if case_from_llm != "UNKNOWN" else extract_case_number(text)
 
+        root = BaseConfig.SCAN_FILES_DIR
+
         if case != "UNKNOWN":
-            api_person = await lookup_person_by_case(case)
-            if api_person:
-                person = api_person
-        elif person != "UNKNOWN" and len(person.split()) >= 3:
-            api_case = await lookup_case_by_fio(person)
-            if api_case:
-                case = api_case
+            # Всегда проверяем номер дела через основной сервис
+            api_person, found_in_db = await lookup_person_by_case(case)
+            if not found_in_db:
+                # Номер есть в документе, но в базе не найден — ручная проверка
+                dest_dir = os.path.join(root, _DIR_BAD_CASE)
+            else:
+                if api_person:
+                    person = api_person
+                if person == "UNKNOWN":
+                    # Сделка в базе есть, но имя не определить
+                    dest_dir = os.path.join(root, _DIR_NO_PERSON)
+                else:
+                    dest_dir = _client_dest_dir(person, case, root)
+        else:
+            # Номера нет — пробуем найти по ФИО (перебираем каждое найденное ФИО)
+            fios = _split_fios(person) if person != "UNKNOWN" else []
+            for fio in fios:
+                api_case, api_person = await lookup_case_by_fio(fio)
+                if api_case:
+                    case = api_case
+                    person = api_person
+                    break
+            if case != "UNKNOWN":
+                dest_dir = _client_dest_dir(person, case, root)
+            else:
+                dest_dir = os.path.join(root, _DIR_NO_CASE)
 
         base_name = _make_filename(org, person, case)
         ext = os.path.splitext(file_path)[1]
-        dest_dir = _determine_dest_dir(person, case, BaseConfig.SCAN_FILES_DIR)
         await asyncio.to_thread(os.makedirs, dest_dir, exist_ok=True)
         dest_path = await asyncio.to_thread(_unique_dest_path, dest_dir, base_name, ext)
         await asyncio.to_thread(shutil.copy2, file_path, dest_path)

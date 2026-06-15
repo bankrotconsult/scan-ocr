@@ -11,7 +11,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./uploads:/app/uploads
-      - /home/rudich/scan-files:/home/rudich/scan-files
+      - ${SCAN_FILES_MOUNT}:${SCAN_FILES_MOUNT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -19,7 +19,7 @@ services:
         condition: service_started
     environment:
       UPLOADS_DIR: /app/uploads
-      SCAN_FILES_DIR: /home/rudich/scan-files/test
+      SCAN_FILES_DIR: ${SCAN_FILES_DIR}
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: qwen2.5:7b
       HOME: /tmp

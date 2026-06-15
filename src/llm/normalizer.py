@@ -139,5 +139,6 @@ def extract_case_number(text: str) -> str:
     m = _CASE_RE.search(text)
     if not m:
         return "UNKNOWN"
-    # Always normalize separator before year to slash: А73-5702-2025 → А73-5702/2025
-    return re.sub(r'[-/]((?:19|20)\d{2})$', r'/\1', m.group(0))
+    # Normalize separator to slash and first letter to Cyrillic А (OCR may produce Latin A)
+    result = re.sub(r'[-/]((?:19|20)\d{2})$', r'/\1', m.group(0))
+    return "А" + result[1:]
