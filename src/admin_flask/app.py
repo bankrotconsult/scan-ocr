@@ -37,7 +37,9 @@ class AdminAuth(AuthenticationBackend):
 
 
 def init_admin(app):
-    """initialize func"""
+    """
+    init admin app
+    """
     try:
         authentication_backend = AdminAuth(secret_key=BaseConfig.SECRET_KEY)
 
