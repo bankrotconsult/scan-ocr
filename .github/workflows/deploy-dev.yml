@@ -1,0 +1,46 @@
+name: Deploy DEV
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, scan]
+
+    steps:
+
+      - name: Update project
+        run: |
+          cd /home/bk-admin/backend/scan-ocr
+          git pull origin dev
+
+      - name: Build scan-app
+        run: |
+          cd /home/bk-admin/backend/scan-ocr
+          docker compose build scan-app
+
+      - name: Restart scan-app
+        run: |
+          cd /home/bk-admin/backend/scan-ocr
+          docker compose up -d --no-deps scan-app
+
+      - name: Show running containers
+        run: docker ps
+
+      - name: Wait for services
+        run: sleep 15
+
+      - name: Run migrations
+        run: |
+          cd /home/bk-admin/backend/scan-ocr
+          docker compose exec -T scan-app alembic upgrade head
+
+      - name: Show logs
+        run: |
+          cd /home/bk-admin/backend/scan-ocr
+          docker compose logs --tail=50 scan-app
+
+      - name: Cleanup docker images
+        run: docker image prune -f
