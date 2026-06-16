@@ -14,7 +14,10 @@ class FileRepository(SQLAlchemyRepository):
         return FileResponseDTO(
             id=file.id,
             name=file.name,
+            org=file.org,
+            person=file.person,
             context=file.context,
+            context_blocks=file.context_blocks,
             status=file.status,
         )
 
@@ -34,9 +37,25 @@ class FileRepository(SQLAlchemyRepository):
         files = result.scalars().all()
         return [self.create_file_dto(f) for f in files]
 
-    async def update_ocr_result(self, file_id: int, context: str, status: str) -> None:
+    async def update_ocr_result(
+        self,
+        file_id: int,
+        context: str,
+        status: str,
+        name: str | None = None,
+        org: str | None = None,
+        person: str | None = None,
+        context_blocks: str | None = None,
+    ) -> None:
+        values: dict = {"context": context, "status": status}
+        if name is not None:
+            values["name"] = name
+        if org is not None:
+            values["org"] = org
+        if person is not None:
+            values["person"] = person
+        if context_blocks is not None:
+            values["context_blocks"] = context_blocks
         await self.session.execute(
-            update(self.model)
-            .where(self.model.id == file_id)
-            .values(context=context, status=status)
+            update(self.model).where(self.model.id == file_id).values(**values)
         )

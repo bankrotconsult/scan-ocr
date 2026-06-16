@@ -121,7 +121,7 @@
         <div class="hint">Каждая выбранная страница станет началом нового сегмента</div>
       </div>
       <div class="actions">
-        <button class="btn btn-outline" id="strip-btn" onclick="stripEvenPages()">Убрать чётные страницы</button>
+        <button class="btn btn-outline" id="delete-btn" disabled onclick="deleteSelectedPages()">Удалить выбранные</button>
         <span class="selection-info" id="selection-info">Не выбрано</span>
         <button class="btn btn-primary" id="process-btn" disabled onclick="processSplit()">Разделить и обработать</button>
       </div>
@@ -194,10 +194,13 @@
     const pdfDoc = await pdfjsLib.getDocument(`/split/pdf/${pdfToken}`).promise;
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const page = await pdfDoc.getPage(i);
-      const viewport = page.getViewport({ scale: 0.28 });
+      const pixelRatio = window.devicePixelRatio || 1;
+      const viewport = page.getViewport({ scale: 0.3 * pixelRatio });
       const canvas = document.createElement('canvas');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
+      canvas.style.width  = (viewport.width  / pixelRatio) + 'px';
+      canvas.style.height = (viewport.height / pixelRatio) + 'px';
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
 
       const card = document.createElement('div');
@@ -225,22 +228,30 @@
   function updateSelectionInfo() {
     const count = selectedPages.size;
     const info = document.getElementById('selection-info');
-    const btn = document.getElementById('process-btn');
+    const processBtn = document.getElementById('process-btn');
+    const deleteBtn = document.getElementById('delete-btn');
     if (count === 0) {
       info.textContent = 'Не выбрано';
-      btn.disabled = true;
+      processBtn.disabled = true;
+      deleteBtn.disabled = true;
     } else {
       const sorted = [...selectedPages].sort((a, b) => a - b);
       info.textContent = `Выбрано ${count}: стр. ${sorted.join(', ')}`;
-      btn.disabled = false;
+      processBtn.disabled = false;
+      deleteBtn.disabled = false;
     }
   }
 
-  async function stripEvenPages() {
-    document.getElementById('strip-btn').disabled = true;
-    showLoading('Удаление чётных страниц...');
+  async function deleteSelectedPages() {
+    if (selectedPages.size === 0) return;
+    const sorted = [...selectedPages].sort((a, b) => a - b);
+    showLoading('Удаление страниц...');
     try {
-      const res = await fetch(`/split/strip-even/${pdfToken}`, { method: 'POST' });
+      const res = await fetch(`/split/remove-pages/${pdfToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pages: sorted }),
+      });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       totalPages = data.page_count;
@@ -251,7 +262,6 @@
       await renderPages();
     } catch (e) {
       alert('Ошибка: ' + e.message);
-      document.getElementById('strip-btn').disabled = false;
     } finally {
       hideLoading();
     }

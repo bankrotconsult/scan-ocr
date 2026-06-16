@@ -8,12 +8,14 @@ def get_page_count(path: str) -> int:
     return len(PdfReader(path).pages)
 
 
-def strip_even_pages(token: str, uploads_dir: str) -> int:
+def remove_pages(token: str, pages_to_remove: list[int], uploads_dir: str) -> int:
     path = os.path.join(uploads_dir, f"{token}.pdf")
     reader = PdfReader(path)
     writer = PdfWriter()
-    for i in range(0, len(reader.pages), 2):
-        writer.add_page(reader.pages[i])
+    remove_set = set(pages_to_remove)
+    for i, page in enumerate(reader.pages):
+        if (i + 1) not in remove_set:
+            writer.add_page(page)
     with open(path, "wb") as f:
         writer.write(f)
     return len(writer.pages)

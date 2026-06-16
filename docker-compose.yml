@@ -2,20 +2,27 @@ services:
   scan-app:
     build: .
     restart: always
+    user: "${APP_UID}:${APP_GID}"
     command: uvicorn src.app:app --host 0.0.0.0 --port 8005 --reload
     ports:
       - "8005:8005"
     env_file:
       - .env
     volumes:
+      - ./src:/app/src
       - ./uploads:/app/uploads
-      - /home/rudich/scan-files:/home/rudich/scan-files
+      - ${SCAN_FILES_MOUNT}:${SCAN_FILES_MOUNT}
     depends_on:
       postgres:
         condition: service_healthy
+      ollama:
+        condition: service_started
     environment:
       UPLOADS_DIR: /app/uploads
-      SCAN_FILES_DIR: /home/rudich/scan-files
+      SCAN_FILES_DIR: ${SCAN_FILES_DIR}
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: qwen2.5:7b
+      HOME: /tmp
 
   postgres:
     image: postgres:16
@@ -29,5 +36,12 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama
+    restart: always
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   postgres_data:
+  ollama_data:

@@ -11,5 +11,9 @@ class ProcessRequest(BaseModel):
     split_pages: list[int]
 
 
+class RemovePagesRequest(BaseModel):
+    pages: list[int]
+
+
 class StripEvenResponse(BaseModel):
     page_count: int
