@@ -69,8 +69,8 @@ _FSSF_KEYWORDS = (
     "фссп", "федеральная служба судебных приставов",
 )
 
-# Matches А27-5158/2026 or А27-5158-2026; result is always normalized to slash form
-_CASE_RE = re.compile(r'[АA]\d{2}-\d+[/\-](?:19|20)\d{2}\b')
+# Matches А27-5158/2026, А27-5158-2026, А27-5158/26; result is normalized to slash + 4-digit year
+_CASE_RE = re.compile(r'[АA]\d{2}-\d+[/\-](?:(?:19|20)\d{2}|\d{2})\b')
 
 # Bank name extraction: "Сбербанк банк" or "Банк ВТБ" etc.
 _BANK_NAME_RE = re.compile(
@@ -139,6 +139,13 @@ def extract_case_number(text: str) -> str:
     m = _CASE_RE.search(text)
     if not m:
         return "UNKNOWN"
-    # Normalize separator to slash and first letter to Cyrillic А (OCR may produce Latin A)
-    result = re.sub(r'[-/]((?:19|20)\d{2})$', r'/\1', m.group(0))
+
+    def _normalize_sep_year(mo: re.Match) -> str:
+        year = mo.group(1)
+        if len(year) == 2:
+            year = "20" + year
+        return "/" + year
+
+    # Normalize separator to slash, expand 2-digit year, fix Latin A → Cyrillic А
+    result = re.sub(r'[-/]((?:19|20)\d{2}|\d{2})$', _normalize_sep_year, m.group(0))
     return "А" + result[1:]

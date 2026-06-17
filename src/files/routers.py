@@ -51,9 +51,21 @@ def _make_filename(org: str, person: str, case: str) -> str:
     return f"{_sanitize(org)} | {person_d} | {case_d}"
 
 
+def _normalize_fio(person: str) -> str:
+    """Capitalize each word of FIO if it contains only letters, spaces, hyphens."""
+    if person == "UNKNOWN":
+        return person
+    if not re.fullmatch(r'[А-ЯЁа-яёA-Za-z\s\-]+', person.strip()):
+        return person
+    return re.sub(r'[А-ЯЁа-яёA-Za-z]+', lambda m: m.group(0).capitalize(), person)
+
+
 def _client_dest_dir(person: str, case: str, root: str) -> str:
     case_safe = case.replace("/", "-").replace("\\", "-")
     folder_client = _sanitize(f"{person} {case_safe}")
+    year_m = re.search(r'[/\-](\d{4})$', case)
+    if year_m:
+        return os.path.join(root, year_m.group(1), folder_client, _DIR_CLIENT)
     return os.path.join(root, folder_client, _DIR_CLIENT)
 
 
@@ -91,6 +103,12 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
         raw_org, person, case_llm = await OllamaService().analyze_document(text, blocks)
         org = apply_org_rules(raw_org, text)
         case_from_llm = extract_case_number(case_llm) if case_llm != "UNKNOWN" else "UNKNOWN"
+        # Verify LLM-found case number exists in source text (reject hallucinations)
+        if case_from_llm != "UNKNOWN":
+            body = re.match(r'[АA](\d{2}-\d+)', case_from_llm)
+            if not body or not re.search(re.escape(body.group(1)), text):
+                print(f"[CASE] LLM hallucinated '{case_from_llm}' — not found in text, ignoring")
+                case_from_llm = "UNKNOWN"
         case = case_from_llm if case_from_llm != "UNKNOWN" else extract_case_number(text)
 
         root = BaseConfig.SCAN_FILES_DIR
@@ -123,6 +141,7 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
             else:
                 dest_dir = os.path.join(root, _DIR_NO_CASE)
 
+        person = _normalize_fio(person)
         base_name = _make_filename(org, person, case)
         ext = os.path.splitext(file_path)[1]
         await asyncio.to_thread(os.makedirs, dest_dir, exist_ok=True)

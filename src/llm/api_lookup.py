@@ -4,7 +4,7 @@ import httpx
 
 from src.llm.normalizer import extract_case_number
 
-_CASE_API_URL = "https://api.bankrotconsult.ru/deals/"
+_CASE_API_BASE_URL = "https://api.bankrotconsult.ru/deals"
 _FIO_API_URL = "https://api.bankrotconsult.ru/deals/by-fio/"
 _TIMEOUT = 15.0
 _RETRY_DELAY = 120.0
@@ -48,21 +48,22 @@ async def _safe_get(url: str, params: dict, label: str) -> httpx.Response | None
 async def lookup_person_by_case(case_number: str) -> tuple[str | None, bool]:
     """
     Returns (person_name, found_in_db).
-      found_in_db=True  — API вернул хотя бы одну сделку (номер дела существует в базе).
-      found_in_db=False — пустой список или ошибка сети (файл → ручная проверка).
+      found_in_db=True  — API вернул объект сделки (номер дела существует в базе).
+      found_in_db=False — null/ошибка сети (файл → ручная проверка).
       person_name=None  — сделка найдена, но title пустой.
     case_number всегда приходит с кириллической А (нормализовано в extract_case_number).
     """
-    resp = await _safe_get(_CASE_API_URL, {"case_number": case_number}, "CASE LOOKUP")
+    url = f"{_CASE_API_BASE_URL}/by-case-number/{case_number}"
+    resp = await _safe_get(url, {}, "CASE LOOKUP")
     if resp is None:
         return None, False
 
     data = resp.json()
-    if not data or not isinstance(data, list):
-        _log("---", f"CASE LOOKUP  пустой список для «{case_number}» — номера нет в базе")
+    if not data or not isinstance(data, dict):
+        _log("---", f"CASE LOOKUP  null-ответ для «{case_number}» — номера нет в базе")
         return None, False
 
-    title = (data[0].get("title") or "").strip()
+    title = (data.get("title") or "").strip()
     if title:
         _log("✓✓✓", f"CASE LOOKUP  найдено: person=«{title}»")
         return title, True
