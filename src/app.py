@@ -1,10 +1,14 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi import Request
+from fastapi.responses import HTMLResponse
 
 from src.admin_flask.app import init_admin
 from src.config.base import BaseConfig
+
+_INDEX_PATH = os.path.join(os.path.dirname(__file__), "templates", "index.html")
 
 
 @asynccontextmanager
@@ -29,6 +33,12 @@ if not BaseConfig.DEBUG:
 
 
 init_admin(app)
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    with open(_INDEX_PATH, encoding="utf-8") as f:
+        return HTMLResponse(f.read())
 
 
 from src.files.routers import router as files_router

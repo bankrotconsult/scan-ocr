@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Загрузка готовых файлов</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+    .container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+    .back { display: inline-flex; align-items: center; gap: 6px; color: #888; font-size: 14px; text-decoration: none; margin-bottom: 24px; }
+    .back:hover { color: #f97316; }
+    h1 { font-size: 24px; font-weight: 600; margin-bottom: 6px; color: #111; }
+    .hint-main { font-size: 14px; color: #888; margin-bottom: 28px; }
+    .hint-main code { background: #f0f0f0; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: #e5e7eb; border-radius: 10px; padding: 4px; width: fit-content; }
+    .tab {
+      padding: 8px 20px; border-radius: 7px; font-size: 14px; font-weight: 500;
+      cursor: pointer; border: none; background: transparent; color: #666; transition: all .15s;
+    }
+    .tab.active { background: #fff; color: #111; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+
+    /* Upload */
+    .upload-box {
+      background: #fff; border: 2px dashed #ccc; border-radius: 12px;
+      padding: 48px; text-align: center; cursor: pointer; transition: border-color .2s;
+    }
+    .upload-box.drag-over { border-color: #f97316; background: #fff7f2; }
+    .upload-box:hover { border-color: #f97316; }
+    .upload-box input { display: none; }
+    .upload-icon { margin-bottom: 12px; color: #ccc; }
+    .upload-label { font-size: 16px; color: #666; cursor: pointer; }
+    .upload-label span { color: #f97316; font-weight: 600; }
+    .upload-hint { margin-top: 8px; font-size: 13px; color: #aaa; }
+
+    .file-list { margin-top: 20px; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: none; }
+    .file-list-header { padding: 12px 16px; background: #f9f9f9; font-size: 13px; color: #666; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .file-list-body { max-height: 240px; overflow-y: auto; }
+    .file-item { padding: 10px 16px; font-size: 14px; border-bottom: 1px solid #f5f5f5; display: flex; align-items: center; gap: 8px; }
+    .file-item:last-child { border-bottom: none; }
+    .file-item svg { flex-shrink: 0; color: #999; }
+
+    /* Scan section */
+    .scan-box { background: #fff; border-radius: 12px; padding: 32px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .scan-box p { color: #666; font-size: 14px; line-height: 1.7; margin-bottom: 24px; }
+    .scan-box ol { text-align: left; max-width: 520px; margin: 0 auto 24px; padding-left: 20px; font-size: 14px; color: #555; line-height: 2; }
+    .scan-box code { background: #f5f5f5; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+    .actions { display: flex; gap: 12px; align-items: center; margin-top: 20px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 24px; border-radius: 8px; font-size: 15px;
+      font-weight: 500; cursor: pointer; border: none; transition: background .2s;
+    }
+    .btn-primary { background: #f97316; color: #fff; }
+    .btn-primary:hover { background: #ea6c0f; }
+    .btn-primary:disabled { background: #fbd0b0; cursor: not-allowed; }
+    .btn-outline { background: #fff; color: #f97316; border: 2px solid #f97316; }
+    .btn-outline:hover { background: #fff7f2; }
+
+    .spinner {
+      display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.5);
+      border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    .spinner-orange { border-color: rgba(249,115,22,.3); border-top-color: #f97316; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #results-section { display: none; margin-top: 32px; }
+    #results-section h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+    .summary { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .summary-chip { padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 500; }
+    .chip-done { background: #d1fae5; color: #065f46; }
+    .chip-error { background: #fee2e2; color: #991b1b; }
+    .chip-info  { background: #dbeafe; color: #1e40af; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    th { background: #f9f9f9; text-align: left; padding: 12px 16px; font-size: 13px; color: #666; font-weight: 500; border-bottom: 1px solid #eee; }
+    td { padding: 11px 16px; font-size: 13px; border-bottom: 1px solid #f0f0f0; word-break: break-all; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .badge-done  { background: #d1fae5; color: #065f46; }
+    .badge-error { background: #fee2e2; color: #991b1b; }
+    .badge-info  { background: #dbeafe; color: #1e40af; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <a href="/" class="back">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+    </svg>
+    На главную
+  </a>
+
+  <h1>Готовые файлы</h1>
+  <p class="hint-main">
+    Формат имени: <code>Орг | Фамилия Имя Отчество | А73-12345-2026.pdf</code>
+  </p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('upload')">Загрузить с компьютера</button>
+    <button class="tab" onclick="switchTab('scan')">Сканировать папки сервера</button>
+  </div>
+
+  <!-- TAB: Upload -->
+  <div id="tab-upload">
+    <div class="upload-box" id="drop-zone"
+         onclick="document.getElementById('file-input').click()"
+         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+      <input type="file" id="file-input" multiple onchange="onFilesSelected()">
+      <div class="upload-icon">
+        <svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+      </div>
+      <div class="upload-label">Перетащите файлы сюда или <span>выберите</span></div>
+      <div class="upload-hint">Можно выбрать сразу несколько файлов (Ctrl+клик или Shift+клик)</div>
+    </div>
+
+    <div class="file-list" id="file-list">
+      <div class="file-list-header">
+        <span id="file-count">0 файлов выбрано</span>
+        <button style="padding:4px 12px;font-size:13px;border-radius:6px;background:#fff;color:#f97316;border:1.5px solid #f97316;cursor:pointer" onclick="clearFiles()">Очистить</button>
+      </div>
+      <div class="file-list-body" id="file-list-body"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="upload-btn" disabled onclick="uploadFiles()">
+        Загрузить и разложить
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB: Scan -->
+  <div id="tab-scan" style="display:none">
+    <div class="scan-box">
+      <ol>
+        <li>Откройте папки <strong>«Без номера дела»</strong> или <strong>«Неизвестные номера дела»</strong> через сетевой диск</li>
+        <li>Переименуйте нужные файлы прямо там: <code>Орг | ФИО | А73-12345-2026.pdf</code></li>
+        <li>Нажмите кнопку — сервер найдёт их и переместит в папки клиентов</li>
+      </ol>
+      <p>Файлы будут именно <strong>перемещены</strong> (исчезнут из исходной папки)</p>
+      <button class="btn btn-primary" id="scan-btn" onclick="scanBadFolders()">
+        Найти и переместить переименованные файлы
+      </button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results-section">
+    <h2>Результат</h2>
+    <div class="summary" id="summary"></div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40%">Файл</th>
+          <th style="width:12%">Статус</th>
+          <th>Путь назначения</th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+    <button class="btn btn-outline" style="margin-top:20px" onclick="resetResults()">Обработать ещё</button>
+  </div>
+</div>
+
+<script>
+  let selectedFiles = [];
+
+  function switchTab(tab) {
+    document.getElementById('tab-upload').style.display = tab === 'upload' ? '' : 'none';
+    document.getElementById('tab-scan').style.display  = tab === 'scan'   ? '' : 'none';
+    document.querySelectorAll('.tab').forEach((el, i) => {
+      el.classList.toggle('active', (i === 0 && tab === 'upload') || (i === 1 && tab === 'scan'));
+    });
+    resetResults();
+  }
+
+  /* ---- Upload tab ---- */
+  function onFilesSelected() {
+    addFiles(Array.from(document.getElementById('file-input').files));
+  }
+  function onDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag-over'); }
+  function onDragLeave()  { document.getElementById('drop-zone').classList.remove('drag-over'); }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.remove('drag-over');
+    addFiles(Array.from(e.dataTransfer.files));
+  }
+  function addFiles(newFiles) {
+    const existing = new Set(selectedFiles.map(f => f.name));
+    newFiles.forEach(f => { if (!existing.has(f.name)) selectedFiles.push(f); });
+    renderFileList();
+  }
+  function clearFiles() {
+    selectedFiles = [];
+    document.getElementById('file-input').value = '';
+    renderFileList();
+  }
+  function renderFileList() {
+    const list = document.getElementById('file-list');
+    const body = document.getElementById('file-list-body');
+    const btn  = document.getElementById('upload-btn');
+    if (selectedFiles.length === 0) { list.style.display = 'none'; btn.disabled = true; return; }
+    list.style.display = 'block';
+    btn.disabled = false;
+    document.getElementById('file-count').textContent = `${selectedFiles.length} ${plural(selectedFiles.length)} выбрано`;
+    body.innerHTML = selectedFiles.map(f => `
+      <div class="file-item">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 9.414V19a2 2 0 01-2 2z"/>
+        </svg>
+        ${esc(f.name)}
+      </div>`).join('');
+  }
+
+  async function uploadFiles() {
+    if (!selectedFiles.length) return;
+    const btn = document.getElementById('upload-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Загрузка...';
+    try {
+      const fd = new FormData();
+      selectedFiles.forEach(f => fd.append('files', f));
+      const res = await fetch('/files/named', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(await res.text());
+      showResults(await res.json());
+    } catch (e) {
+      alert('Ошибка: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Загрузить и разложить';
+    }
+  }
+
+  /* ---- Scan tab ---- */
+  async function scanBadFolders() {
+    const btn = document.getElementById('scan-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Сканирование...';
+    try {
+      const res = await fetch('/files/scan-bad', { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      showResults(await res.json());
+    } catch (e) {
+      alert('Ошибка: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Найти и переместить переименованные файлы';
+    }
+  }
+
+  /* ---- Shared results ---- */
+  function showResults(results) {
+    const doneCount  = results.filter(r => r.status === 'done').length;
+    const errorCount = results.filter(r => r.status === 'error').length;
+    const infoCount  = results.filter(r => r.status === 'info').length;
+    const summary = document.getElementById('summary');
+    summary.innerHTML = '';
+    if (doneCount)  summary.innerHTML += `<span class="summary-chip chip-done">✓ Перемещено: ${doneCount}</span>`;
+    if (errorCount) summary.innerHTML += `<span class="summary-chip chip-error">✕ Ошибок: ${errorCount}</span>`;
+    if (infoCount)  summary.innerHTML += `<span class="summary-chip chip-info">ℹ ${results.find(r=>r.status==='info').dest}</span>`;
+    document.getElementById('results-body').innerHTML = results.filter(r=>r.status!=='info').map(r => `
+      <tr>
+        <td>${esc(r.name)}</td>
+        <td><span class="badge badge-${r.status}">${r.status === 'done' ? 'OK' : 'ошибка'}</span></td>
+        <td style="color:${r.status==='error'?'#dc2626':'#374151'}">${esc(r.dest)}</td>
+      </tr>`).join('');
+    document.getElementById('results-section').style.display = 'block';
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function resetResults() {
+    selectedFiles = [];
+    if (document.getElementById('file-input')) document.getElementById('file-input').value = '';
+    renderFileList();
+    document.getElementById('results-section').style.display = 'none';
+    document.getElementById('results-body').innerHTML = '';
+    document.getElementById('summary').innerHTML = '';
+  }
+
+  function plural(n) {
+    if (n%10===1 && n%100!==11) return 'файл';
+    if ([2,3,4].includes(n%10) && ![12,13,14].includes(n%100)) return 'файла';
+    return 'файлов';
+  }
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>

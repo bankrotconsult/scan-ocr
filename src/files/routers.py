@@ -8,7 +8,7 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, BackgroundTasks, UploadFile, status
 from fastapi import File as FormFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from src.config.base import BaseConfig
 from src.db.db import db_session
@@ -31,6 +31,8 @@ router = APIRouter(
     prefix="/files",
     tags=["Files"],
 )
+
+_NAMED_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "upload_named.html")
 
 
 _PERSON_FALLBACK = "ФИО не найдены"
@@ -113,6 +115,109 @@ def _unique_dest_path(dest_dir: str, base_name: str, ext: str) -> str:
         path = os.path.join(dest_dir, f"{base_name} ({counter}){ext}")
         counter += 1
     return path
+
+
+@router.get("/named", response_class=HTMLResponse)
+async def named_upload_page():
+    with open(_NAMED_TEMPLATE_PATH, encoding="utf-8") as f:
+        return HTMLResponse(f.read())
+
+
+@router.post("/named")
+async def upload_named_files(files: list[UploadFile] = FormFile(...)):
+    """Distribute pre-named files to correct folders without OCR/LLM."""
+    root = BaseConfig.SCAN_FILES_DIR
+    results = []
+
+    for file in files:
+        original_name = file.filename or ""
+        stem = os.path.splitext(original_name)[0]
+        parts = [p.strip() for p in stem.split("|")]
+
+        if len(parts) < 3:
+            results.append({"name": original_name, "status": "error", "dest": "Неверный формат имени (ожидается: Орг | ФИО | Номер дела)"})
+            continue
+
+        org = parts[0]
+        person = _normalize_fio(parts[1])
+        case_raw = parts[2]
+        case = extract_case_number(case_raw)
+
+        if not person or person == _PERSON_FALLBACK or case == "UNKNOWN":
+            results.append({"name": original_name, "status": "error", "dest": "Не удалось определить ФИО или номер дела из имени файла"})
+            continue
+
+        uploads_dir = BaseConfig.UPLOADS_DIR
+        os.makedirs(uploads_dir, exist_ok=True)
+        ext = os.path.splitext(original_name)[1]
+        temp_path = os.path.join(uploads_dir, f"{uuid.uuid4()}{ext}")
+        contents = await file.read()
+        with open(temp_path, "wb") as fh:
+            fh.write(contents)
+
+        try:
+            dest_dir = _client_dest_dir(person, case, root)
+            await asyncio.to_thread(os.makedirs, dest_dir, exist_ok=True)
+            base_name = _make_filename(org, person, case)
+            dest_path = await asyncio.to_thread(_unique_dest_path, dest_dir, base_name, ext)
+            await asyncio.to_thread(shutil.move, temp_path, dest_path)
+            results.append({"name": original_name, "status": "done", "dest": dest_path})
+        except Exception as e:
+            if await asyncio.to_thread(os.path.exists, temp_path):
+                await asyncio.to_thread(os.remove, temp_path)
+            results.append({"name": original_name, "status": "error", "dest": str(e)})
+
+    return results
+
+
+@router.post("/scan-bad")
+async def scan_bad_folders():
+    """Scan bad folders for properly-named files and move them to correct destinations."""
+    root = BaseConfig.SCAN_FILES_DIR
+    results = []
+
+    scan_dirs = [
+        os.path.join(root, _DIR_NO_CASE),
+        os.path.join(root, _DIR_BAD_CASE),
+    ]
+
+    for scan_dir in scan_dirs:
+        if not await asyncio.to_thread(os.path.isdir, scan_dir):
+            continue
+        filenames = await asyncio.to_thread(os.listdir, scan_dir)
+        for filename in filenames:
+            file_path = os.path.join(scan_dir, filename)
+            if not await asyncio.to_thread(os.path.isfile, file_path):
+                continue
+
+            stem = os.path.splitext(filename)[0]
+            parts = [p.strip() for p in stem.split("|")]
+            if len(parts) < 3:
+                continue
+
+            org = parts[0]
+            person = _normalize_fio(parts[1])
+            case_raw = parts[2]
+            case = extract_case_number(case_raw)
+
+            if not person or person == _PERSON_FALLBACK or case == "UNKNOWN":
+                continue
+
+            ext = os.path.splitext(filename)[1]
+            try:
+                dest_dir = _client_dest_dir(person, case, root)
+                await asyncio.to_thread(os.makedirs, dest_dir, exist_ok=True)
+                base_name = _make_filename(org, person, case)
+                dest_path = await asyncio.to_thread(_unique_dest_path, dest_dir, base_name, ext)
+                await asyncio.to_thread(shutil.move, file_path, dest_path)
+                results.append({"name": filename, "status": "done", "dest": dest_path})
+            except Exception as e:
+                results.append({"name": filename, "status": "error", "dest": str(e)})
+
+    if not results:
+        results.append({"name": "—", "status": "info", "dest": "Файлов в подходящем формате не найдено"})
+
+    return results
 
 
 async def _run_ocr(file_id: int, file_path: str) -> None:
