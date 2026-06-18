@@ -47,9 +47,10 @@ def _sanitize(value: str) -> str:
 
 
 def _make_filename(org: str, person: str, case: str) -> str:
+    org_d = _sanitize(org)[:40].strip()
     person_d = _sanitize(person) if person != "UNKNOWN" else _PERSON_FALLBACK
     case_d = case.replace("/", "-").replace("\\", "-") if case != "UNKNOWN" else _CASE_FALLBACK
-    return f"{_sanitize(org)} | {person_d} | {case_d}"
+    return f"{org_d} | {person_d} | {case_d}"
 
 
 def _normalize_fio(person: str) -> str:
@@ -70,7 +71,7 @@ def _client_dest_dir(person: str, case: str, root: str) -> str:
     return os.path.join(root, folder_client, _DIR_CLIENT)
 
 
-_INITIAL_RE = re.compile(r'^[А-ЯЁA-Z]\.$')
+_INITIAL_RE = re.compile(r'^(?:[А-ЯЁA-Z]\.){1,3}$')
 
 
 def _extract_lastname_if_initials(person: str) -> str | None:
