@@ -21,6 +21,7 @@ from src.llm import (
     apply_org_rules,
     extract_case_number,
     lookup_case_by_fio,
+    lookup_case_by_lastname,
     lookup_person_by_case,
 )
 from src.ocr import PaddleOCRService
@@ -67,6 +68,23 @@ def _client_dest_dir(person: str, case: str, root: str) -> str:
     if year_m:
         return os.path.join(root, year_m.group(1), folder_client, _DIR_CLIENT)
     return os.path.join(root, folder_client, _DIR_CLIENT)
+
+
+_INITIAL_RE = re.compile(r'^[А-ЯЁA-Z]\.$')
+
+
+def _extract_lastname_if_initials(person: str) -> str | None:
+    """Return last name if person is 'Lastname I.O.' or 'Lastname I.' format."""
+    words = person.strip().split()
+    if len(words) < 2:
+        return None
+    lastname = words[0].rstrip(",")
+    if len(lastname) < 2 or "." in lastname:
+        return None
+    initials = [w.rstrip(",") for w in words[1:]]
+    if all(_INITIAL_RE.match(i) for i in initials):
+        return lastname
+    return None
 
 
 def _split_fios(person: str) -> list[str]:
@@ -139,7 +157,19 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
             if case != "UNKNOWN":
                 dest_dir = _client_dest_dir(person, case, root)
             else:
-                dest_dir = os.path.join(root, _DIR_NO_CASE)
+                # Fallback: try last name only if format is "Фамилия И.О."
+                if person != "UNKNOWN":
+                    lastname = _extract_lastname_if_initials(person)
+                    if lastname:
+                        api_case, api_person = await lookup_case_by_lastname(lastname)
+                        if api_case:
+                            case = api_case
+                            if api_person:
+                                person = api_person
+                if case != "UNKNOWN":
+                    dest_dir = _client_dest_dir(person, case, root)
+                else:
+                    dest_dir = os.path.join(root, _DIR_NO_CASE)
 
         person = _normalize_fio(person)
         base_name = _make_filename(org, person, case)

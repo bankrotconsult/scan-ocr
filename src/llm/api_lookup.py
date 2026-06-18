@@ -125,3 +125,43 @@ async def lookup_case_by_fio(person: str) -> tuple[str | None, str | None]:
 
     _log("---", f"FIO LOOKUP   сделка найдена, но case_number «{raw_case}» не подходит по формату")
     return None, None
+
+
+async def lookup_case_by_lastname(last_name: str) -> tuple[str | None, str | None]:
+    """Search by last name only (when only initials are available)."""
+    resp = await _safe_get(
+        _FIO_API_URL,
+        {"last_name": last_name},
+        "LASTNAME LOOKUP",
+    )
+    if resp is None:
+        return None, None
+
+    data = resp.json()
+    if not data or not isinstance(data, list):
+        _log("---", f"LASTNAME LOOKUP  пустой список для «{last_name}»")
+        return None, None
+
+    if len(data) > 1:
+        contact_ids = {d.get("bitrix_contact_id") for d in data}
+        if len(contact_ids) > 1:
+            _log(
+                "---",
+                f"LASTNAME LOOKUP  {len(data)} сделок с разными contact_id {contact_ids}"
+                " — неоднозначно, пропускаем",
+            )
+            return None, None
+
+    raw_case = next((d.get("case_number") for d in data if d.get("case_number")), None)
+    if not raw_case:
+        _log("---", "LASTNAME LOOKUP  сделки найдены, но case_number пустой/null")
+        return None, None
+
+    validated = extract_case_number(raw_case)
+    if validated == "UNKNOWN":
+        _log("---", f"LASTNAME LOOKUP  case_number «{raw_case}» не подходит по формату")
+        return None, None
+
+    api_person = (data[0].get("title") or "").strip() or None
+    _log("✓✓✓", f"LASTNAME LOOKUP  найдено: case=«{validated}», person=«{api_person}»")
+    return validated, api_person
