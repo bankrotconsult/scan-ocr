@@ -145,12 +145,30 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Page zoom modal -->
+<div id="page-modal" onclick="closeModal()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;cursor:zoom-out;">
+  <div onclick="event.stopPropagation()"
+       style="position:relative;max-width:92vw;max-height:92vh;overflow:auto;background:#fff;border-radius:10px;padding:14px;box-shadow:0 20px 60px rgba(0,0,0,.5);cursor:default;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <span id="modal-page-num" style="font-size:13px;color:#666;font-weight:500;"></span>
+      <button onclick="closeModal()"
+              style="background:none;border:none;cursor:pointer;color:#999;font-size:22px;line-height:1;padding:0 4px;">✕</button>
+    </div>
+    <canvas id="modal-canvas" style="display:block;"></canvas>
+    <div style="text-align:center;margin-top:10px;font-size:12px;color:#aaa;">Нажмите за пределами или ✕ для закрытия</div>
+  </div>
+</div>
+
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
   let pdfToken = null;
   let totalPages = 0;
+  let pdfDoc = null;
+  let longPressActive = false;
+  let pressTimer = null;
   const selectedPages = new Set();
 
   function onFileSelected() {
@@ -195,7 +213,7 @@
     showLoading('Рендеринг страниц...');
     const grid = document.getElementById('pages-grid');
     grid.innerHTML = '';
-    const pdfDoc = await pdfjsLib.getDocument(`/split/pdf/${pdfToken}`).promise;
+    pdfDoc = await pdfjsLib.getDocument(`/split/pdf/${pdfToken}`).promise;
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const page = await pdfDoc.getPage(i);
       const pixelRatio = window.devicePixelRatio || 1;
@@ -212,7 +230,22 @@
       card.dataset.page = i;
       card.innerHTML = `<span class="page-num">${i}</span><span class="page-check">✓</span>`;
       card.insertBefore(canvas, card.firstChild);
-      card.addEventListener('click', () => togglePage(i, card));
+
+      // Long press → open zoomed view; short click → toggle selection
+      const startPress = () => { pressTimer = setTimeout(() => { longPressActive = true; openPageModal(i); }, 600); };
+      const cancelPress = () => clearTimeout(pressTimer);
+      card.addEventListener('mousedown', startPress);
+      card.addEventListener('mouseup', cancelPress);
+      card.addEventListener('mouseleave', cancelPress);
+      card.addEventListener('touchstart', startPress, { passive: true });
+      card.addEventListener('touchend', cancelPress);
+      card.addEventListener('touchmove', cancelPress);
+      card.addEventListener('contextmenu', (e) => e.preventDefault());
+      card.addEventListener('click', () => {
+        if (longPressActive) { longPressActive = false; return; }
+        togglePage(i, card);
+      });
+
       grid.appendChild(card);
     }
     hideLoading();
@@ -303,8 +336,37 @@
     document.getElementById('results-section').style.display = 'block';
   }
 
+  async function openPageModal(pageNum) {
+    if (!pdfDoc) return;
+    document.getElementById('page-modal').style.display = 'flex';
+    document.getElementById('modal-page-num').textContent = `Страница ${pageNum}`;
+    showLoading('Открываю страницу...');
+    try {
+      const page = await pdfDoc.getPage(pageNum);
+      const pixelRatio = window.devicePixelRatio || 1;
+      const baseVp = page.getViewport({ scale: 1 });
+      const maxW = window.innerWidth  * 0.88;
+      const maxH = window.innerHeight * 0.82;
+      const scale = Math.min(maxW / baseVp.width, maxH / baseVp.height) * pixelRatio;
+      const viewport = page.getViewport({ scale });
+      const canvas = document.getElementById('modal-canvas');
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width  = (viewport.width  / pixelRatio) + 'px';
+      canvas.style.height = (viewport.height / pixelRatio) + 'px';
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('page-modal').style.display = 'none';
+  }
+
   function resetAll() {
     pdfToken = null;
+    pdfDoc = null;
     totalPages = 0;
     selectedPages.clear();
     document.getElementById('pages-grid').innerHTML = '';
