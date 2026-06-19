@@ -23,3 +23,7 @@ class BaseConfig:
     OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
     OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+
+    # Windows UNC path to the root scan directory (e.g. \\SERVER\scan-files\test)
+    # Used to build clickable folder links in the web UI
+    SCAN_FILES_SHARE_URL: str = os.getenv("SCAN_FILES_SHARE_URL", "")

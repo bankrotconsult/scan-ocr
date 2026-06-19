@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Загрузка готовых файлов</title>
+  <title>Загрузка готовых файлов — Банкротконсалт</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+    header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 24px; display: flex; align-items: center; gap: 8px; }
+    .brand { font-size: 15px; font-weight: 700; color: #6366f1; letter-spacing: .3px; }
     .container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
     .back { display: inline-flex; align-items: center; gap: 6px; color: #888; font-size: 14px; text-decoration: none; margin-bottom: 24px; }
-    .back:hover { color: #f97316; }
+    .back:hover { color: #6366f1; }
     h1 { font-size: 24px; font-weight: 600; margin-bottom: 6px; color: #111; }
     .hint-main { font-size: 14px; color: #888; margin-bottom: 28px; }
     .hint-main code { background: #f0f0f0; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
@@ -27,12 +29,12 @@
       background: #fff; border: 2px dashed #ccc; border-radius: 12px;
       padding: 48px; text-align: center; cursor: pointer; transition: border-color .2s;
     }
-    .upload-box.drag-over { border-color: #f97316; background: #fff7f2; }
-    .upload-box:hover { border-color: #f97316; }
+    .upload-box.drag-over { border-color: #6366f1; background: #eef2ff; }
+    .upload-box:hover { border-color: #6366f1; }
     .upload-box input { display: none; }
     .upload-icon { margin-bottom: 12px; color: #ccc; }
     .upload-label { font-size: 16px; color: #666; cursor: pointer; }
-    .upload-label span { color: #f97316; font-weight: 600; }
+    .upload-label span { color: #6366f1; font-weight: 600; }
     .upload-hint { margin-top: 8px; font-size: 13px; color: #aaa; }
 
     .file-list { margin-top: 20px; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: none; }
@@ -47,6 +49,27 @@
     .scan-box p { color: #666; font-size: 14px; line-height: 1.7; margin-bottom: 24px; }
     .scan-box ol { text-align: left; max-width: 520px; margin: 0 auto 24px; padding-left: 20px; font-size: 14px; color: #555; line-height: 2; }
     .scan-box code { background: #f5f5f5; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+    .folder-link-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: none; border: none; padding: 0;
+      color: #6366f1; font-size: 14px; font-weight: 600; cursor: pointer;
+      text-decoration: underline; text-underline-offset: 2px;
+    }
+    .folder-link-btn:hover { color: #4f46e5; }
+
+    /* Path modal */
+    .path-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: center; justify-content: center; }
+    .path-modal-overlay.open { display: flex; }
+    .path-modal { background: #fff; border-radius: 14px; padding: 28px; max-width: 520px; width: 90%; box-shadow: 0 16px 48px rgba(0,0,0,.2); }
+    .path-modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #111; }
+    .path-modal p { font-size: 14px; color: #555; margin-bottom: 16px; line-height: 1.6; }
+    .path-box { background: #f3f4f6; border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 13px; color: #1f2937; word-break: break-all; margin-bottom: 16px; }
+    .path-modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+    .btn-sm { padding: 8px 18px; font-size: 14px; border-radius: 8px; cursor: pointer; border: none; font-weight: 500; transition: background .15s; }
+    .btn-copy { background: #6366f1; color: #fff; }
+    .btn-copy:hover { background: #4f46e5; }
+    .btn-close-sm { background: #f3f4f6; color: #374151; }
+    .btn-close-sm:hover { background: #e5e7eb; }
 
     .actions { display: flex; gap: 12px; align-items: center; margin-top: 20px; }
     .btn {
@@ -54,17 +77,16 @@
       padding: 10px 24px; border-radius: 8px; font-size: 15px;
       font-weight: 500; cursor: pointer; border: none; transition: background .2s;
     }
-    .btn-primary { background: #f97316; color: #fff; }
-    .btn-primary:hover { background: #ea6c0f; }
-    .btn-primary:disabled { background: #fbd0b0; cursor: not-allowed; }
-    .btn-outline { background: #fff; color: #f97316; border: 2px solid #f97316; }
-    .btn-outline:hover { background: #fff7f2; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
+    .btn-outline { background: #fff; color: #6366f1; border: 2px solid #6366f1; }
+    .btn-outline:hover { background: #eef2ff; }
 
     .spinner {
       display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.5);
       border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite;
     }
-    .spinner-orange { border-color: rgba(249,115,22,.3); border-top-color: #f97316; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     #results-section { display: none; margin-top: 32px; }
@@ -85,8 +107,16 @@
   </style>
 </head>
 <body>
+<header>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="7" x2="21" y2="7"/>
+    <path d="M3 7l3 8a3 3 0 006 0L3 7"/><path d="M21 7l-3 8a3 3 0 01-6 0L21 7"/>
+    <line x1="9" y1="21" x2="15" y2="21"/>
+  </svg>
+  <span class="brand">Банкротконсалт</span>
+</header>
 <div class="container">
-  <a href="/" style="display:inline-flex;align-items:center;gap:8px;color:#fff;font-size:14px;font-weight:500;text-decoration:none;background:#f97316;padding:8px 18px;border-radius:8px;margin-bottom:24px;">
+  <a href="/" style="display:inline-flex;align-items:center;gap:8px;color:#fff;font-size:14px;font-weight:500;text-decoration:none;background:#6366f1;padding:8px 18px;border-radius:8px;margin-bottom:24px;">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
     </svg>
@@ -121,7 +151,7 @@
     <div class="file-list" id="file-list">
       <div class="file-list-header">
         <span id="file-count">0 файлов выбрано</span>
-        <button style="padding:4px 12px;font-size:13px;border-radius:6px;background:#fff;color:#f97316;border:1.5px solid #f97316;cursor:pointer" onclick="clearFiles()">Очистить</button>
+        <button style="padding:4px 12px;font-size:13px;border-radius:6px;background:#fff;color:#6366f1;border:1.5px solid #6366f1;cursor:pointer" onclick="clearFiles()">Очистить</button>
       </div>
       <div class="file-list-body" id="file-list-body"></div>
     </div>
@@ -137,7 +167,10 @@
   <div id="tab-scan" style="display:none">
     <div class="scan-box">
       <ol>
-        <li>Откройте папки <strong>«Без номера дела»</strong> или <strong>«Неизвестные номера дела»</strong> через сетевой диск</li>
+        <li>Откройте <button class="folder-link-btn" onclick="openNoCaseFolder(event)">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+              папку «Без номера дела»
+            </button> через сетевой диск</li>
         <li>Переименуйте нужные файлы прямо там: <code>Орг | ФИО | А73-12345-2026.pdf</code></li>
         <li>Нажмите кнопку — сервер найдёт их и переместит в папки клиентов</li>
       </ol>
@@ -166,8 +199,22 @@
   </div>
 </div>
 
+<!-- Path modal -->
+<div class="path-modal-overlay" id="path-modal" onclick="if(event.target===this)closePathModal()">
+  <div class="path-modal">
+    <h3 id="path-modal-title">Папка «Без номера дела»</h3>
+    <p id="path-modal-desc"></p>
+    <div class="path-box" id="path-modal-path" style="display:none"></div>
+    <div class="path-modal-actions">
+      <button class="btn-sm btn-copy" id="path-copy-btn" style="display:none" onclick="copyPath()">Скопировать путь</button>
+      <button class="btn-sm btn-close-sm" onclick="closePathModal()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <script>
   let selectedFiles = [];
+  let currentPath = '';
 
   function switchTab(tab) {
     document.getElementById('tab-upload').style.display = tab === 'upload' ? '' : 'none';
@@ -280,6 +327,56 @@
     document.getElementById('results-body').innerHTML = '';
     document.getElementById('summary').innerHTML = '';
   }
+
+  /* ---- Folder link ---- */
+  async function openNoCaseFolder(e) {
+    e.preventDefault();
+    try {
+      const res = await fetch('/files/no-case-folder');
+      const data = await res.json();
+      const title = document.getElementById('path-modal-title');
+      const desc  = document.getElementById('path-modal-desc');
+      const pathBox  = document.getElementById('path-modal-path');
+      const copyBtn  = document.getElementById('path-copy-btn');
+
+      if (!data.exists) {
+        title.textContent = 'Папка не найдена';
+        desc.textContent  = 'Папка «Без номера дела» ещё не создана на сервере. Она появится автоматически, когда первый документ не сможет быть распознан.';
+        pathBox.style.display = 'none';
+        copyBtn.style.display = 'none';
+      } else if (!data.windows_path) {
+        title.textContent = 'Путь не настроен';
+        desc.textContent  = 'Папка существует на сервере, но сетевой путь не задан. Попросите администратора указать переменную SCAN_FILES_SHARE_URL в настройках сервиса.';
+        pathBox.style.display = 'none';
+        copyBtn.style.display = 'none';
+      } else {
+        title.textContent = 'Папка «Без номера дела»';
+        desc.textContent  = 'Скопируйте путь ниже и вставьте его в адресную строку Проводника Windows (или диалог «Выполнить» Win+R):';
+        currentPath = data.windows_path;
+        pathBox.textContent = currentPath;
+        pathBox.style.display = 'block';
+        copyBtn.style.display = 'inline-flex';
+      }
+      document.getElementById('path-modal').classList.add('open');
+    } catch (e) {
+      alert('Ошибка при проверке папки: ' + e.message);
+    }
+  }
+
+  function closePathModal() { document.getElementById('path-modal').classList.remove('open'); }
+
+  async function copyPath() {
+    try {
+      await navigator.clipboard.writeText(currentPath);
+      const btn = document.getElementById('path-copy-btn');
+      btn.textContent = 'Скопировано!';
+      setTimeout(() => { btn.textContent = 'Скопировать путь'; }, 2000);
+    } catch {
+      prompt('Скопируйте путь вручную:', currentPath);
+    }
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePathModal(); });
 
   function plural(n) {
     if (n%10===1 && n%100!==11) return 'файл';

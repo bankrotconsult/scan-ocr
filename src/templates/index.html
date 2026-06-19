@@ -3,11 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Обработка документов</title>
+  <title>Обработка документов — Банкротконсалт</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-    .container { max-width: 800px; width: 100%; padding: 48px 24px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 24px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .brand { font-size: 15px; font-weight: 700; color: #6366f1; letter-spacing: .3px; }
+    .main { flex: 1; display: flex; align-items: center; justify-content: center; }
+    .container { max-width: 800px; width: 100%; padding: 48px 24px 24px; }
+    .service-title { text-align: center; margin-bottom: 6px; }
+    .service-title .genius { font-size: 36px; font-weight: 800; letter-spacing: -.5px; background: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .service-title .ai { font-size: 36px; font-weight: 800; letter-spacing: -.5px; color: #111; }
     h1 { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 8px; color: #111; }
     .subtitle { text-align: center; color: #888; font-size: 15px; margin-bottom: 48px; }
     .cards { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
@@ -20,22 +26,86 @@
       transition: border-color .2s, box-shadow .2s, transform .15s;
       display: flex; flex-direction: column; gap: 16px;
     }
-    .card:hover { border-color: #f97316; box-shadow: 0 6px 24px rgba(249,115,22,.15); transform: translateY(-2px); }
+    .card:hover { border-color: #6366f1; box-shadow: 0 6px 24px rgba(99,102,241,.15); transform: translateY(-2px); }
     .card-icon {
-      width: 52px; height: 52px; border-radius: 12px; background: #fff7f2;
+      width: 52px; height: 52px; border-radius: 12px; background: #eef2ff;
       display: flex; align-items: center; justify-content: center;
     }
-    .card-icon svg { color: #f97316; }
+    .card-icon svg { color: #6366f1; }
     .card h2 { font-size: 18px; font-weight: 600; color: #111; }
     .card p { font-size: 14px; color: #666; line-height: 1.6; }
     .card-arrow {
       margin-top: auto; display: flex; align-items: center; gap: 6px;
-      font-size: 14px; font-weight: 500; color: #f97316;
+      font-size: 14px; font-weight: 500; color: #6366f1;
     }
+
+    /* Help footnote */
+    .footnote { text-align: center; margin-top: 36px; }
+    .help-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: none; border: 1.5px solid #d1d5db; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px; color: #6b7280; cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .help-btn:hover { border-color: #6366f1; color: #6366f1; }
+    .help-btn svg { flex-shrink: 0; }
+
+    /* Modal overlay */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.5); z-index: 100;
+      align-items: flex-start; justify-content: center;
+      padding: 32px 16px; overflow-y: auto;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 16px; width: 100%; max-width: 700px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25); padding: 32px;
+      position: relative; margin: auto;
+    }
+    .modal-close {
+      position: absolute; top: 16px; right: 16px;
+      background: none; border: none; cursor: pointer;
+      font-size: 22px; color: #9ca3af; line-height: 1;
+    }
+    .modal-close:hover { color: #111; }
+    .modal h2 { font-size: 20px; font-weight: 700; color: #111; margin-bottom: 6px; }
+    .modal .modal-subtitle { font-size: 14px; color: #6b7280; margin-bottom: 24px; }
+    .modal h3 { font-size: 15px; font-weight: 700; color: #6366f1; margin: 20px 0 8px; display: flex; align-items: center; gap: 8px; }
+    .modal h3:first-of-type { margin-top: 0; }
+    .modal p { font-size: 14px; color: #444; line-height: 1.7; margin-bottom: 8px; }
+    .modal ol, .modal ul { padding-left: 20px; font-size: 14px; color: #444; line-height: 2; }
+    .modal li { margin-bottom: 2px; }
+    .modal code {
+      background: #f3f4f6; padding: 1px 6px; border-radius: 4px;
+      font-size: 12px; font-family: monospace; color: #111;
+    }
+    .modal .tip {
+      background: #eef2ff; border-left: 3px solid #6366f1;
+      border-radius: 0 8px 8px 0; padding: 10px 14px;
+      font-size: 13px; color: #4338ca; margin: 12px 0;
+    }
+    .modal .warn {
+      background: #fef9ee; border-left: 3px solid #f59e0b;
+      border-radius: 0 8px 8px 0; padding: 10px 14px;
+      font-size: 13px; color: #92400e; margin: 12px 0;
+    }
+    .modal-divider { border: none; border-top: 1px solid #e5e7eb; margin: 20px 0; }
   </style>
 </head>
 <body>
+<header>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="7" x2="21" y2="7"/>
+    <path d="M3 7l3 8a3 3 0 006 0L3 7"/><path d="M21 7l-3 8a3 3 0 01-6 0L21 7"/>
+    <line x1="9" y1="21" x2="15" y2="21"/>
+  </svg>
+  <span class="brand">Банкротконсалт</span>
+</header>
+
+<div class="main">
 <div class="container">
+  <div class="service-title"><span class="genius">genius</span><span class="ai">AI</span></div>
   <h1>Обработка документов</h1>
   <p class="subtitle">Выберите режим работы</p>
 
@@ -72,6 +142,105 @@
       </div>
     </a>
   </div>
+
+  <div class="footnote">
+    <button class="help-btn" onclick="openHelp()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      Инструкция по работе с сервисом
+    </button>
+  </div>
 </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal-overlay" id="help-modal" onclick="onOverlayClick(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeHelp()">✕</button>
+    <h2>Инструкция по работе с сервисом</h2>
+    <p class="modal-subtitle">Сервис автоматически распознаёт документы о банкротстве и раскладывает файлы по папкам клиентов.</p>
+
+    <h3>
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 9.414V19a2 2 0 01-2 2z"/></svg>
+      Режим 1 — Разбить и обработать PDF
+    </h3>
+    <p>Используйте, когда у вас есть один большой PDF с несколькими документами разных клиентов.</p>
+    <ol>
+      <li>Нажмите <strong>«Разбить и обработать PDF»</strong> на главной странице</li>
+      <li>Загрузите PDF-файл (перетащите или нажмите «выберите файл»)</li>
+      <li>Перед вами появятся все страницы документа в виде миниатюр</li>
+      <li>Кликните на те страницы, с которых <strong>начинается каждый новый документ</strong> — они выделятся галочкой. Например: стр. 1 — Иванов, стр. 5 — Петров → выбираете стр. 1 и 5</li>
+      <li>Нажмите <strong>«Разделить и обработать»</strong></li>
+    </ol>
+    <div class="tip">Сервис автоматически распознает ФИО, номер дела и разложит файлы по папкам. Ждать не нужно — можно закрыть страницу.</div>
+    <p><strong>Просмотр страницы крупнее:</strong> удерживайте нажатие на миниатюру (~0,5 сек) — откроется увеличенный вид.</p>
+    <p>Лишние страницы (обложки, пустые) можно выбрать и нажать <strong>«Удалить выбранные»</strong> перед обработкой.</p>
+
+    <hr class="modal-divider">
+
+    <h3>
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      Режим 2 — Загрузить готовые файлы
+    </h3>
+    <p>Используйте, когда файлы уже переименованы вручную. Файл должен называться точно так:</p>
+    <p><code>Орг | Фамилия Имя Отчество | А73-12345-2026.pdf</code></p>
+    <p>Пример: <code>ФНС | Иванов Иван Иванович | А73-19762-2024.pdf</code></p>
+    <div class="warn">Разделитель — символ <strong>|</strong> (вертикальная черта) с пробелами вокруг. Все три части обязательны.</div>
+
+    <p><strong>Вкладка «Загрузить с компьютера»</strong></p>
+    <ol>
+      <li>Перетащите файлы в область или нажмите «Выберите» (можно выбрать несколько через Ctrl+клик)</li>
+      <li>Нажмите <strong>«Загрузить и разложить»</strong></li>
+      <li>Сервис проверит формат имени и разложит файлы по папкам клиентов</li>
+    </ol>
+
+    <p style="margin-top:12px"><strong>Вкладка «Сканировать папки сервера»</strong> — лучший способ, если файлы уже на сетевом диске</p>
+    <ol>
+      <li>Откройте папку <strong>«Без номера дела»</strong> через сетевой диск</li>
+      <li>Переименуйте там нужные файлы, дав им правильный формат</li>
+      <li>Нажмите <strong>«Найти и переместить переименованные файлы»</strong></li>
+    </ol>
+    <div class="tip">При сканировании файлы <strong>перемещаются</strong> (исчезают из «Без номера дела» и появляются в папке клиента). При загрузке с компьютера — оригинал на вашем компьютере остаётся.</div>
+
+    <hr class="modal-divider">
+
+    <h3>
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      Куда попадают файлы
+    </h3>
+    <p>Все файлы раскладываются по такой структуре:</p>
+    <p><code>Корневая папка / Год / Фамилия Имя Отчество А73-XXXXX-ГГГГ / Ответы /</code></p>
+    <p>Пример: <code>scan / 2024 / Иванов Иван Иванович А73-19762-2024 / Ответы / ФНС | Иванов Иван Иванович | А73-19762-2024.pdf</code></p>
+
+    <hr class="modal-divider">
+
+    <h3>
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Что делать, если файл не распознан
+    </h3>
+    <p>Если сервис не смог определить данные, файл попадает в одну из служебных папок:</p>
+    <ul>
+      <li><strong>«Без номера дела»</strong> — номер дела не найден в документе</li>
+      <li><strong>«Неизвестные номера дела»</strong> — номер есть, но не значится в базе Банкротконсалт</li>
+    </ul>
+    <p style="margin-top:8px">Дальнейшие действия:</p>
+    <ol>
+      <li>Откройте нужную папку через сетевой диск</li>
+      <li>Посмотрите файл и определите правильные данные</li>
+      <li>Переименуйте файл: <code>Орг | ФИО | А73-12345-2026.pdf</code></li>
+      <li>Перейдите в <strong>«Загрузить готовые файлы»</strong> → вкладка «Сканировать папки сервера» → нажмите кнопку</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+  function openHelp()  { document.getElementById('help-modal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+  function closeHelp() { document.getElementById('help-modal').classList.remove('open'); document.body.style.overflow = ''; }
+  function onOverlayClick(e) { if (e.target === document.getElementById('help-modal')) closeHelp(); }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
+</script>
 </body>
 </html>

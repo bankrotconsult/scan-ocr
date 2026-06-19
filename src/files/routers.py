@@ -170,6 +170,17 @@ async def upload_named_files(files: list[UploadFile] = FormFile(...)):
     return results
 
 
+@router.get("/no-case-folder")
+async def no_case_folder_info():
+    """Check if 'Без номера дела' folder exists and return its Windows network path."""
+    root = BaseConfig.SCAN_FILES_DIR
+    folder_path = os.path.join(root, _DIR_NO_CASE)
+    exists = await asyncio.to_thread(os.path.isdir, folder_path)
+    share_root = (BaseConfig.SCAN_FILES_SHARE_URL or "").rstrip("/\\")
+    windows_path = f"{share_root}/{_DIR_NO_CASE}" if share_root else None
+    return {"exists": exists, "windows_path": windows_path}
+
+
 @router.post("/scan-bad")
 async def scan_bad_folders():
     """Scan bad folders for properly-named files and move them to correct destinations."""
@@ -178,7 +189,6 @@ async def scan_bad_folders():
 
     scan_dirs = [
         os.path.join(root, _DIR_NO_CASE),
-        os.path.join(root, _DIR_BAD_CASE),
     ]
 
     for scan_dir in scan_dirs:
