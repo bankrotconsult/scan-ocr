@@ -27,3 +27,9 @@ class BaseConfig:
     # Windows UNC path to the root scan directory (e.g. \\SERVER\scan-files\test)
     # Used to build clickable folder links in the web UI
     SCAN_FILES_SHARE_URL: str = os.getenv("SCAN_FILES_SHARE_URL", "")
+
+    # Google Sheets integration
+    GOOGLE_SHEETS_ID: str = os.getenv("GOOGLE_SHEETS_ID", "")
+    GOOGLE_CREDENTIALS_PATH: str = os.getenv("GOOGLE_CREDENTIALS_PATH", "/app/credentials.json")
+    # Directory for JSON caches; defaults to .sheet_cache inside SCAN_FILES_DIR
+    SHEET_CACHE_DIR: str = os.getenv("SHEET_CACHE_DIR", "")

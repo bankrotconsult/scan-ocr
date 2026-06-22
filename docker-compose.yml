@@ -12,6 +12,8 @@ services:
       - ./src:/app/src
       - ./uploads:/app/uploads
       - ${SCAN_FILES_MOUNT}:${SCAN_FILES_MOUNT}
+      - ./credentials.json:/app/credentials.json:ro
+      - ./cache:/app/cache
     depends_on:
       postgres:
         condition: service_healthy

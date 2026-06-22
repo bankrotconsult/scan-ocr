@@ -170,3 +170,5 @@ logs/*
 .gigaide
 
 uploads/
+credentials.json
+cache/

@@ -22,6 +22,8 @@ itsdangerous = "*"
 pypdf = "*"
 jinja2 = "*"
 aiofiles = "*"
+gspread = "*"
+google-auth = "*"
 
 
 [tool.poetry.group.dev.dependencies]

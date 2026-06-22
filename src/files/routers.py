@@ -16,6 +16,7 @@ from src.files.dto import FileCreateDTO
 from src.files.repository import FileRepository
 from src.files.schemas import FileResponseSchema
 from src.files.service import FileService
+from src.files.sheet_sync import load_case_to_fio, load_fio_to_cases, sync_sheet, get_cache_dir, CASE_TO_FIO_FILE, FIO_TO_CASES_FILE
 from src.llm import (
     OllamaService,
     apply_org_rules,
@@ -33,6 +34,7 @@ router = APIRouter(
 )
 
 _NAMED_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "upload_named.html")
+_SYNC_SHEET_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "sync_sheet.html")
 
 
 _PERSON_FALLBACK = "ФИО не найдены"
@@ -181,6 +183,58 @@ async def no_case_folder_info():
     return {"exists": exists, "windows_path": windows_path}
 
 
+@router.get("/sync-sheet", response_class=HTMLResponse)
+async def sync_sheet_page():
+    with open(_SYNC_SHEET_TEMPLATE_PATH, encoding="utf-8") as f:
+        return HTMLResponse(f.read())
+
+
+@router.get("/sync-sheet/status")
+async def sync_sheet_status():
+    """Return upload-busy flag and cache freshness info."""
+    uploads_dir = BaseConfig.UPLOADS_DIR
+    busy = False
+    if await asyncio.to_thread(os.path.isdir, uploads_dir):
+        entries = await asyncio.to_thread(os.listdir, uploads_dir)
+        busy = any(
+            os.path.isfile(os.path.join(uploads_dir, e)) for e in entries
+        )
+
+    cache_dir = get_cache_dir()
+    c2f_path = os.path.join(cache_dir, CASE_TO_FIO_FILE)
+    f2c_path = os.path.join(cache_dir, FIO_TO_CASES_FILE)
+    c2f_exists = await asyncio.to_thread(os.path.exists, c2f_path)
+    f2c_exists = await asyncio.to_thread(os.path.exists, f2c_path)
+    cache_exists = c2f_exists and f2c_exists
+
+    updated_at = None
+    if cache_exists:
+        mtime = await asyncio.to_thread(os.path.getmtime, c2f_path)
+        from datetime import datetime, timezone
+        updated_at = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+
+    return {"busy": busy, "cache_exists": cache_exists, "updated_at": updated_at}
+
+
+@router.post("/sync-sheet")
+async def do_sync_sheet():
+    """Read Google Sheets table and rebuild local JSON caches."""
+    try:
+        result = await asyncio.to_thread(sync_sheet)
+        return result
+    except ValueError as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    except Exception as e:
+        print(f"[SHEET] Ошибка синхронизации: {e}")
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 @router.post("/scan-bad")
 async def scan_bad_folders():
     """Scan bad folders for properly-named files and move them to correct destinations."""
@@ -248,44 +302,69 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
         root = BaseConfig.SCAN_FILES_DIR
 
         if case != "UNKNOWN":
-            # Всегда проверяем номер дела через основной сервис
-            api_person, found_in_db = await lookup_person_by_case(case)
-            if not found_in_db:
-                # Номер есть в документе, но в базе не найден — ручная проверка
-                dest_dir = os.path.join(root, _DIR_BAD_CASE)
-            else:
-                if api_person:
-                    person = api_person
-                if person == "UNKNOWN":
-                    # Сделка в базе есть, но имя не определить
-                    dest_dir = os.path.join(root, _DIR_NO_PERSON)
-                else:
-                    dest_dir = _client_dest_dir(person, case, root)
-        else:
-            # Номера нет — пробуем найти по ФИО (перебираем каждое найденное ФИО)
-            fios = _split_fios(person) if person != "UNKNOWN" else []
-            for fio in fios:
-                api_case, api_person = await lookup_case_by_fio(fio)
-                if api_case:
-                    case = api_case
-                    person = api_person
-                    break
-            if case != "UNKNOWN":
+            _c2f = load_case_to_fio()
+            print(f"[CACHE] case_to_fio загружен: {len(_c2f)} записей")
+            if case in _c2f:
+                person = _c2f[case]
+                print(f"[CACHE] Номер дела найден в кэше: {case} → {person}")
                 dest_dir = _client_dest_dir(person, case, root)
             else:
-                # Fallback: try last name only if format is "Фамилия И.О."
-                if person != "UNKNOWN":
-                    lastname = _extract_lastname_if_initials(person)
-                    if lastname:
-                        api_case, api_person = await lookup_case_by_lastname(lastname)
-                        if api_case:
-                            case = api_case
-                            if api_person:
-                                person = api_person
+                print(f"[CACHE] Номер дела не найден в кэше: {case} → обращаемся к API")
+                api_person, found_in_db = await lookup_person_by_case(case)
+                if not found_in_db:
+                    dest_dir = os.path.join(root, _DIR_BAD_CASE)
+                else:
+                    if api_person:
+                        person = api_person
+                    if person == "UNKNOWN":
+                        dest_dir = os.path.join(root, _DIR_NO_PERSON)
+                    else:
+                        dest_dir = _client_dest_dir(person, case, root)
+        else:
+            # Номера нет — пробуем найти по ФИО
+            fios = _split_fios(person) if person != "UNKNOWN" else []
+            _f2c = load_fio_to_cases()
+            print(f"[CACHE] fio_to_cases загружен: {len(_f2c)} записей")
+            cache_hit = False
+            for fio in fios:
+                if fio in _f2c:
+                    cases = _f2c[fio]
+                    if len(cases) == 1:
+                        print(f"[CACHE] ФИО найдено в кэше: {fio} → дело {cases[0]}")
+                        case = cases[0]
+                        person = fio
+                        dest_dir = _client_dest_dir(person, case, root)
+                    else:
+                        print(f"[CACHE] ФИО найдено в кэше: {fio} → несколько дел {cases}, папка 'Без номера дела'")
+                        dest_dir = os.path.join(root, _DIR_NO_CASE)
+                    cache_hit = True
+                    break
+                else:
+                    print(f"[CACHE] ФИО не найдено в кэше: {fio}")
+            if not cache_hit:
+                print(f"[CACHE] Ни одно ФИО не найдено в кэше → обращаемся к API")
+                for fio in fios:
+                    api_case, api_person = await lookup_case_by_fio(fio)
+                    if api_case:
+                        case = api_case
+                        person = api_person
+                        break
                 if case != "UNKNOWN":
                     dest_dir = _client_dest_dir(person, case, root)
                 else:
-                    dest_dir = os.path.join(root, _DIR_NO_CASE)
+                    # Fallback: try last name only if format is "Фамилия И.О."
+                    if person != "UNKNOWN":
+                        lastname = _extract_lastname_if_initials(person)
+                        if lastname:
+                            api_case, api_person = await lookup_case_by_lastname(lastname)
+                            if api_case:
+                                case = api_case
+                                if api_person:
+                                    person = api_person
+                    if case != "UNKNOWN":
+                        dest_dir = _client_dest_dir(person, case, root)
+                    else:
+                        dest_dir = os.path.join(root, _DIR_NO_CASE)
 
         person = _normalize_fio(person)
         base_name = _make_filename(org, person, case)
