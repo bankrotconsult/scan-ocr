@@ -13,16 +13,12 @@ _INDEX_PATH = os.path.join(os.path.dirname(__file__), "templates", "index.html")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("start!!!")
-
+    from src.files.routers import recover_uploads
+    await recover_uploads()
     yield
 
-    print("end!!!")
 
-
-app = FastAPI(
-    lifespan=lifespan,
-)
+app = FastAPI(lifespan=lifespan)
 
 
 if not BaseConfig.DEBUG:

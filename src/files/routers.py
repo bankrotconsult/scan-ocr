@@ -330,6 +330,72 @@ async def scan_bad_folders():
     return results
 
 
+_recovery_tasks: set[asyncio.Task] = set()
+
+
+async def recover_uploads() -> None:
+    uploads_dir = BaseConfig.UPLOADS_DIR
+    if not os.path.isdir(uploads_dir):
+        print(f"[RECOVERY] Папка uploads не найдена: {uploads_dir}", flush=True)
+        return
+    entries = [f for f in os.listdir(uploads_dir) if os.path.isfile(os.path.join(uploads_dir, f))]
+    if not entries:
+        print("[RECOVERY] Нет файлов в uploads/", flush=True)
+        return
+
+    print(f"[RECOVERY] Найдено файлов в uploads/: {len(entries)}", flush=True)
+    recovered = 0
+    files_to_recover: list[tuple[int, str]] = []
+
+    for temp_name in entries:
+        file_path = os.path.join(uploads_dir, temp_name)
+        underscore = temp_name.find("_")
+
+        file_id: int | None = None
+        if underscore != -1:
+            try:
+                file_id = int(temp_name[:underscore])
+            except ValueError:
+                pass  # старый UUID-формат
+
+        if file_id is None:
+            original_name = temp_name[underscore + 1:] if underscore != -1 else temp_name
+            print(f"[RECOVERY] Старый формат: {temp_name} → создаём запись (имя={original_name})", flush=True)
+            async with db_session() as s:
+                record = await FileService(FileRepository(s)).add_one(
+                    FileCreateDTO(name=original_name, status="pending")
+                )
+            file_id = record.id
+        else:
+            try:
+                async with db_session() as s:
+                    record = await FileService(FileRepository(s)).get_one({"id": file_id})
+            except Exception:
+                print(f"[RECOVERY] Пропускаем {temp_name}: запись id={file_id} не найдена в БД", flush=True)
+                continue
+
+            if record.status == "done":
+                print(f"[RECOVERY] {temp_name}: уже обработан, удаляем temp-файл", flush=True)
+                await asyncio.to_thread(os.remove, file_path)
+                continue
+
+            print(f"[RECOVERY] Повторная обработка: {temp_name} (db id={file_id}, status={record.status})", flush=True)
+
+        files_to_recover.append((file_id, file_path))
+        recovered += 1
+
+    print(f"[RECOVERY] Запущено повторно: {recovered} файлов", flush=True)
+
+    if files_to_recover:
+        async def _run_sequentially(items: list[tuple[int, str]]) -> None:
+            for fid, fpath in items:
+                await _run_ocr(fid, fpath)
+
+        task = asyncio.create_task(_run_sequentially(files_to_recover))
+        _recovery_tasks.add(task)
+        task.add_done_callback(_recovery_tasks.discard)
+
+
 async def _run_ocr(file_id: int, file_path: str) -> None:
     try:
         blocks = await PaddleOCRService().predict_structured(file_path)
@@ -451,17 +517,17 @@ async def upload_file(
         uploads_dir = BaseConfig.UPLOADS_DIR
         os.makedirs(uploads_dir, exist_ok=True)
 
-        temp_name = f"{uuid.uuid4()}_{file.filename}"
+        async with db_session() as s:
+            record = await FileService(FileRepository(s)).add_one(
+                FileCreateDTO(name=file.filename, status="pending")
+            )
+
+        temp_name = f"{record.id}_{file.filename}"
         file_path = os.path.join(uploads_dir, temp_name)
 
         contents = await file.read()
         with open(file_path, "wb") as f:
             f.write(contents)
-
-        async with db_session() as s:
-            record = await FileService(FileRepository(s)).add_one(
-                FileCreateDTO(name=file.filename, status="pending")
-            )
 
         background_tasks.add_task(_run_ocr, record.id, file_path)
 

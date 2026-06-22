@@ -53,4 +53,4 @@ class OllamaService:
             return org, person, case
         except Exception as e:
             print(f"LLM analyze error: {e}")
-            return "UNKNOWN", str(uuid.uuid4()), "UNKNOWN"
+            return "UNKNOWN", "UNKNOWN", "UNKNOWN"

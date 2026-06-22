@@ -37,6 +37,12 @@ class FileRepository(SQLAlchemyRepository):
         files = result.scalars().all()
         return [self.create_file_dto(f) for f in files]
 
+    async def mark_all_pending_error(self) -> int:
+        result = await self.session.execute(
+            update(self.model).where(self.model.status == "pending").values(status="error")
+        )
+        return result.rowcount
+
     async def update_ocr_result(
         self,
         file_id: int,

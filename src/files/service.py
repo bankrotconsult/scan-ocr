@@ -15,6 +15,9 @@ class FileService:
     async def get_all(self) -> list[FileResponseDTO]:
         return await self.file_repository.get_all()
 
+    async def mark_all_pending_error(self) -> int:
+        return await self.file_repository.mark_all_pending_error()
+
     async def update_ocr_result(
         self,
         file_id: int,
