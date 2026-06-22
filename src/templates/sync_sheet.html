@@ -9,14 +9,7 @@
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
     header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 24px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .brand { font-size: 15px; font-weight: 700; color: #6366f1; letter-spacing: .3px; }
-    .back-btn {
-      margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
-      font-size: 13px; color: #6b7280; text-decoration: none;
-      border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 5px 12px;
-      transition: border-color .15s, color .15s;
-    }
-    .back-btn:hover { border-color: #6366f1; color: #6366f1; }
-    .main { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; }
+    .main { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px 64px; }
     .container { max-width: 640px; width: 100%; }
     h1 { font-size: 24px; font-weight: 700; color: #111; margin-bottom: 6px; }
     .subtitle { font-size: 14px; color: #888; margin-bottom: 32px; }
@@ -34,7 +27,7 @@
     /* Card */
     .card {
       background: #fff; border-radius: 16px; padding: 32px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+      box-shadow: 0 2px 12px rgba(0,0,0,.08); margin-bottom: 24px;
     }
     .card h2 { font-size: 17px; font-weight: 600; color: #111; margin-bottom: 8px; }
     .card p  { font-size: 14px; color: #666; line-height: 1.6; margin-bottom: 24px; }
@@ -73,6 +66,64 @@
       background: #eef2ff; border-left: 3px solid #6366f1;
       font-size: 13px; color: #4338ca; line-height: 1.6;
     }
+
+    /* Search section */
+    .search-row {
+      display: flex; gap: 8px; margin-bottom: 20px;
+    }
+    .search-input {
+      flex: 1; border: 1.5px solid #d1d5db; border-radius: 10px;
+      padding: 10px 14px; font-size: 15px; color: #111; outline: none;
+      transition: border-color .15s;
+    }
+    .search-input:focus { border-color: #6366f1; }
+    .search-input::placeholder { color: #9ca3af; }
+    .search-go {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #6366f1; color: #fff; border: none; border-radius: 10px;
+      padding: 10px 20px; font-size: 15px; font-weight: 600; cursor: pointer;
+      white-space: nowrap; transition: background .15s;
+    }
+    .search-go:hover { background: #4f46e5; }
+
+    /* Results table */
+    .results-wrap { display: none; }
+    .results-meta { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
+    .results-meta strong { color: #111; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead th {
+      text-align: left; font-weight: 600; color: #6b7280; font-size: 12px;
+      text-transform: uppercase; letter-spacing: .5px;
+      padding: 0 12px 10px; border-bottom: 1.5px solid #e5e7eb;
+    }
+    tbody tr { border-bottom: 1px solid #f3f4f6; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 12px; color: #111; vertical-align: top; }
+    tbody td:first-child { font-weight: 500; }
+    .case-tag {
+      display: inline-block; background: #eef2ff; color: #4338ca;
+      border-radius: 6px; padding: 2px 8px; font-size: 13px;
+      margin: 2px 2px 2px 0; font-family: monospace;
+    }
+    .no-results {
+      text-align: center; padding: 32px 0; color: #9ca3af; font-size: 14px;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; margin-top: 20px; flex-wrap: wrap;
+    }
+    .page-btn {
+      min-width: 36px; height: 36px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+      background: #fff; color: #374151; font-size: 14px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: border-color .15s, background .15s, color .15s;
+    }
+    .page-btn:hover:not(:disabled) { border-color: #6366f1; color: #6366f1; }
+    .page-btn.active { background: #6366f1; border-color: #6366f1; color: #fff; font-weight: 700; cursor: default; }
+    .page-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .page-ellipsis { font-size: 14px; color: #9ca3af; padding: 0 4px; }
   </style>
 </head>
 <body>
@@ -83,16 +134,17 @@
     <line x1="9" y1="21" x2="15" y2="21"/>
   </svg>
   <span class="brand">Банкротконсалт</span>
-  <a href="/" class="back-btn">
-    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-    </svg>
-    На главную
-  </a>
 </header>
 
 <div class="main">
   <div class="container">
+    <a href="/" style="display:inline-flex;align-items:center;gap:8px;color:#fff;font-size:14px;font-weight:500;text-decoration:none;background:#6366f1;padding:8px 18px;border-radius:8px;margin-bottom:24px;">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+      На главную
+    </a>
+
     <h1>Загрузка данных клиентов</h1>
     <p class="subtitle">Синхронизация таблицы ФИО ↔ Номер дела из Google Sheets</p>
 
@@ -107,6 +159,7 @@
       <span id="status-text">Загрузка статуса...</span>
     </div>
 
+    <!-- Sync card -->
     <div class="card">
       <h2>Обновить кэш из Google Sheets</h2>
       <p>Нажмите кнопку, чтобы прочитать таблицу и пересоздать локальный кэш. После этого сервис будет определять клиентов без обращения к внешнему API.</p>
@@ -127,6 +180,40 @@
         Кэш хранится на сервере в виде двух JSON-файлов. Если таблица изменилась — нажмите кнопку снова. Синхронизация займёт несколько секунд.
       </div>
     </div>
+
+    <!-- Search card -->
+    <div class="card">
+      <h2>Поиск клиента</h2>
+      <p>Введите часть ФИО или номер дела (например <code style="background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:12px">А65-8341/2025</code> или <code style="background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:12px">Иванов</code>).</p>
+
+      <div class="search-row">
+        <input id="search-input" class="search-input" type="text"
+               placeholder="ФИО или номер дела..."
+               onkeydown="if(event.key==='Enter') doSearch(1)">
+        <button class="search-go" onclick="doSearch(1)">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
+          </svg>
+          Найти
+        </button>
+      </div>
+
+      <div class="results-wrap" id="results-wrap">
+        <div class="results-meta" id="results-meta"></div>
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>ФИО</th>
+              <th>Номер(а) дела</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+        <div class="no-results" id="no-results" style="display:none">Ничего не найдено</div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -135,6 +222,8 @@
   const banner = document.getElementById('status-banner');
   const statusText = document.getElementById('status-text');
   const resultBlock = document.getElementById('result-block');
+
+  let _currentPage = 1;
 
   function fmtDate(iso) {
     if (!iso) return '';
@@ -147,7 +236,6 @@
     try {
       const r = await fetch('/files/sync-sheet/status');
       const d = await r.json();
-
       if (d.busy) {
         banner.className = 'banner busy';
         statusText.textContent = 'Сервис сейчас обрабатывает документы — загрузка данных из таблицы недоступна. Дождитесь завершения обработки.';
@@ -161,7 +249,7 @@
         statusText.textContent = 'Кэш актуален.' + (d.updated_at ? ' Последнее обновление: ' + fmtDate(d.updated_at) : '');
         btn.disabled = false;
       }
-    } catch (e) {
+    } catch {
       banner.className = 'banner empty';
       statusText.textContent = 'Не удалось получить статус сервиса.';
       btn.disabled = false;
@@ -172,26 +260,22 @@
     btn.classList.add('loading');
     btn.disabled = true;
     resultBlock.style.display = 'none';
-
     try {
       const r = await fetch('/files/sync-sheet', { method: 'POST' });
       const d = await r.json();
-
       if (!r.ok) {
         resultBlock.className = 'result error';
         resultBlock.innerHTML = '<strong>Ошибка:</strong> ' + (d.error || 'Неизвестная ошибка');
-        resultBlock.style.display = 'block';
       } else {
         resultBlock.className = 'result success';
         resultBlock.innerHTML =
           '<strong>Готово.</strong> Загружено: ' + d.fio_count + ' ФИО, ' + d.case_count + ' дел.' +
           (d.skipped ? ' Пропущено строк: ' + d.skipped + '.' : '') +
           (d.updated_at ? ' Обновлён: ' + fmtDate(d.updated_at) + '.' : '');
-        resultBlock.style.display = 'block';
-
         banner.className = 'banner ok';
         statusText.textContent = 'Кэш актуален. Последнее обновление: ' + fmtDate(d.updated_at);
       }
+      resultBlock.style.display = 'block';
     } catch (e) {
       resultBlock.className = 'result error';
       resultBlock.innerHTML = '<strong>Ошибка сети:</strong> ' + e.message;
@@ -200,6 +284,94 @@
       btn.classList.remove('loading');
       btn.disabled = false;
     }
+  }
+
+  async function doSearch(page) {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) return;
+    _currentPage = page;
+
+    try {
+      const r = await fetch('/files/search-cache?q=' + encodeURIComponent(q) + '&page=' + page);
+      const d = await r.json();
+      renderResults(d);
+    } catch (e) {
+      document.getElementById('results-wrap').style.display = 'block';
+      document.getElementById('results-meta').textContent = 'Ошибка: ' + e.message;
+      document.getElementById('results-table').style.display = 'none';
+      document.getElementById('no-results').style.display = 'none';
+      document.getElementById('pagination').innerHTML = '';
+    }
+  }
+
+  function renderResults(d) {
+    const wrap = document.getElementById('results-wrap');
+    const meta = document.getElementById('results-meta');
+    const body = document.getElementById('results-body');
+    const noRes = document.getElementById('no-results');
+    const table = document.getElementById('results-table');
+    const pag = document.getElementById('pagination');
+
+    wrap.style.display = 'block';
+
+    if (d.total === 0) {
+      meta.textContent = '';
+      table.style.display = 'none';
+      noRes.style.display = 'block';
+      pag.innerHTML = '';
+      return;
+    }
+
+    const from = (d.page - 1) * 10 + 1;
+    const to = Math.min(d.page * 10, d.total);
+    meta.innerHTML = 'Найдено: <strong>' + d.total + '</strong> клиент' + plural(d.total) +
+      ' — показаны ' + from + '–' + to;
+
+    table.style.display = '';
+    noRes.style.display = 'none';
+
+    body.innerHTML = d.results.map(row => {
+      const tags = row.cases.map(c => '<span class="case-tag">' + esc(c) + '</span>').join('');
+      return '<tr><td>' + esc(row.fio) + '</td><td>' + tags + '</td></tr>';
+    }).join('');
+
+    renderPagination(d.page, d.pages, pag);
+  }
+
+  function renderPagination(cur, total, el) {
+    if (total <= 1) { el.innerHTML = ''; return; }
+
+    const pages = [];
+    for (let i = 1; i <= total; i++) {
+      if (i === 1 || i === total || (i >= cur - 2 && i <= cur + 2)) {
+        pages.push(i);
+      } else if (pages[pages.length - 1] !== '…') {
+        pages.push('…');
+      }
+    }
+
+    let html = '<button class="page-btn" onclick="doSearch(' + (cur - 1) + ')" ' +
+      (cur === 1 ? 'disabled' : '') + '>‹</button>';
+    pages.forEach(p => {
+      if (p === '…') {
+        html += '<span class="page-ellipsis">…</span>';
+      } else {
+        html += '<button class="page-btn' + (p === cur ? ' active' : '') + '" onclick="doSearch(' + p + ')">' + p + '</button>';
+      }
+    });
+    html += '<button class="page-btn" onclick="doSearch(' + (cur + 1) + ')" ' +
+      (cur === total ? 'disabled' : '') + '>›</button>';
+    el.innerHTML = html;
+  }
+
+  function plural(n) {
+    if (n % 10 === 1 && n % 100 !== 11) return '';
+    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'а';
+    return 'ов';
+  }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
   loadStatus();

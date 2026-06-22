@@ -235,6 +235,52 @@ async def do_sync_sheet():
         )
 
 
+@router.get("/search-cache")
+async def search_cache(q: str = "", page: int = 1):
+    """Search local cache by partial FIO or case number. Returns 10 results per page."""
+    q_stripped = q.strip()
+    if not q_stripped:
+        return {"results": [], "total": 0, "page": 1, "pages": 0, "query": q}
+
+    q_lower = q_stripped.lower()
+    # Normalize case-number query: both / and - are equivalent
+    q_case = q_stripped.replace("/", "-")
+
+    fio_to_cases = load_fio_to_cases()
+    case_to_fio = load_case_to_fio()
+
+    matched: dict[str, list[str]] = {}
+
+    for fio, cases in fio_to_cases.items():
+        if q_lower in fio.lower():
+            matched[fio] = cases
+
+    for case, fio in case_to_fio.items():
+        case_norm = case.replace("/", "-")
+        if q_case.lower() in case_norm.lower():
+            if fio not in matched:
+                matched[fio] = fio_to_cases.get(fio, [case])
+
+    results_all = [
+        {"fio": fio, "cases": [c.replace("/", "-") for c in cases]}
+        for fio, cases in sorted(matched.items())
+    ]
+
+    total = len(results_all)
+    per_page = 10
+    pages = max(1, (total + per_page - 1) // per_page) if total > 0 else 0
+    page = max(1, min(page, pages)) if pages > 0 else 1
+    start = (page - 1) * per_page
+
+    return {
+        "results": results_all[start : start + per_page],
+        "total": total,
+        "page": page,
+        "pages": pages,
+        "query": q_stripped,
+    }
+
+
 @router.post("/scan-bad")
 async def scan_bad_folders():
     """Scan bad folders for properly-named files and move them to correct destinations."""
