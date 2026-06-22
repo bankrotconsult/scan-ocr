@@ -87,6 +87,22 @@
     /* Loading overlay */
     #loading { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.75); z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 16px; font-size: 16px; color: #555; }
     #loading .big-spinner { width: 42px; height: 42px; border: 4px solid #6366f1; border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+
+    /* Modal nav buttons */
+    .modal-nav {
+      background: #f3f4f6; border: none; border-radius: 8px;
+      padding: 6px 16px; font-size: 20px; cursor: pointer;
+      color: #374151; transition: background .15s; line-height: 1; flex-shrink: 0;
+    }
+    .modal-nav:hover:not(:disabled) { background: #e5e7eb; }
+    .modal-nav:disabled { opacity: .3; cursor: default; }
+
+    /* Modal select toggle button */
+    .modal-sel-btn {
+      padding: 8px 20px; border-radius: 8px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background .15s, color .15s;
+    }
   </style>
 </head>
 <body>
@@ -148,23 +164,44 @@
       <thead><tr><th>ID</th><th>Файл</th><th>Статус</th></tr></thead>
       <tbody id="results-body"></tbody>
     </table>
-    <button class="btn btn-outline" id="reset-btn" onclick="resetAll()">Загрузить ещё</button>
   </div>
 </div>
 
+<!-- Scroll to top button -->
+<button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})"
+  style="display:none;position:fixed;bottom:28px;right:28px;z-index:50;
+         width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;
+         background:#6366f1;color:#fff;font-size:20px;line-height:1;
+         box-shadow:0 4px 14px rgba(99,102,241,.4);transition:opacity .2s;"
+  title="Наверх">↑</button>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
 <!-- Page zoom modal -->
-<div id="page-modal" onclick="closeModal()"
-     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;cursor:zoom-out;">
-  <div onclick="event.stopPropagation()"
-       style="position:relative;max-width:92vw;max-height:92vh;overflow:auto;background:#fff;border-radius:10px;padding:14px;box-shadow:0 20px 60px rgba(0,0,0,.5);cursor:default;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span id="modal-page-num" style="font-size:13px;color:#666;font-weight:500;"></span>
+<div id="page-modal"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;"
+     onclick="onModalOverlayClick(event)">
+  <div id="modal-box"
+       style="position:relative;max-width:92vw;max-height:92vh;overflow:auto;background:#fff;border-radius:12px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+
+    <!-- Modal header: prev / page info / next / close -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <button class="modal-nav" id="modal-prev" onclick="navigateModal(-1)" title="Предыдущая (←)">‹</button>
+      <span id="modal-page-num" style="flex:1;text-align:center;font-size:13px;color:#555;font-weight:500;"></span>
+      <button class="modal-nav" id="modal-next" onclick="navigateModal(1)" title="Следующая (→)">›</button>
       <button onclick="closeModal()"
-              style="background:none;border:none;cursor:pointer;color:#999;font-size:22px;line-height:1;padding:0 4px;">✕</button>
+              style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:24px;line-height:1;padding:0 4px;margin-left:4px;">✕</button>
     </div>
+
     <canvas id="modal-canvas" style="display:block;"></canvas>
-    <div style="text-align:center;margin-top:10px;font-size:12px;color:#aaa;">Нажмите за пределами или ✕ для закрытия</div>
+
+    <!-- Modal footer: select toggle / hint -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:12px;flex-wrap:wrap;">
+      <button class="modal-sel-btn" id="modal-toggle-btn" onclick="toggleFromModal()">
+        ✓ Добавить как разделитель
+      </button>
+      <span style="font-size:12px;color:#aaa;">← → для листания · Esc для закрытия</span>
+    </div>
   </div>
 </div>
 
@@ -177,7 +214,12 @@
   let pdfDoc = null;
   let longPressActive = false;
   let pressTimer = null;
+  let currentModalPage = null;
   const selectedPages = new Set();
+
+  const THUMB_W  = 200;   // display width of thumbnails, px
+  const THUMB_Q  = 2;     // oversample factor for crisp text
+  const MODAL_Q  = 2;     // oversample factor for modal
 
   function onFileSelected() {
     const file = document.getElementById('file-input').files[0];
@@ -224,13 +266,16 @@
     pdfDoc = await pdfjsLib.getDocument(`/split/pdf/${pdfToken}`).promise;
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const page = await pdfDoc.getPage(i);
-      const pixelRatio = window.devicePixelRatio || 1;
-      const viewport = page.getViewport({ scale: 0.3 * pixelRatio });
+
+      // High-quality thumbnail: render at THUMB_Q× the display size
+      const baseVp = page.getViewport({ scale: 1 });
+      const thumbScale = (THUMB_W / baseVp.width) * THUMB_Q;
+      const viewport = page.getViewport({ scale: thumbScale });
       const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
+      canvas.width  = viewport.width;
       canvas.height = viewport.height;
-      canvas.style.width  = (viewport.width  / pixelRatio) + 'px';
-      canvas.style.height = (viewport.height / pixelRatio) + 'px';
+      canvas.style.width  = THUMB_W + 'px';
+      canvas.style.height = (viewport.height / THUMB_Q) + 'px';
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
 
       const card = document.createElement('div');
@@ -239,7 +284,7 @@
       card.innerHTML = `<span class="page-num">${i}</span><span class="page-check">✓</span>`;
       card.insertBefore(canvas, card.firstChild);
 
-      // Long press → open zoomed view; short click → toggle selection
+      // Long press (600ms) → open zoom modal; short click → toggle selection
       const startPress = () => { pressTimer = setTimeout(() => { longPressActive = true; openPageModal(i); }, 600); };
       const cancelPress = () => clearTimeout(pressTimer);
       card.addEventListener('mousedown', startPress);
@@ -268,6 +313,7 @@
       card.classList.add('selected');
     }
     updateSelectionInfo();
+    if (currentModalPage !== null) updateModalToggleBtn();
   }
 
   function updateSelectionInfo() {
@@ -344,38 +390,94 @@
     document.getElementById('results-section').style.display = 'block';
   }
 
+  /* ---- Modal ---- */
+
   async function openPageModal(pageNum) {
     if (!pdfDoc) return;
-    document.getElementById('page-modal').style.display = 'flex';
-    document.getElementById('modal-page-num').textContent = `Страница ${pageNum}`;
+    currentModalPage = pageNum;
+    const modal = document.getElementById('page-modal');
+    modal.style.display = 'flex';
+
+    // Update header info and nav buttons
+    document.getElementById('modal-page-num').textContent =
+      `Страница ${pageNum} из ${pdfDoc.numPages}`;
+    document.getElementById('modal-prev').disabled = pageNum <= 1;
+    document.getElementById('modal-next').disabled = pageNum >= pdfDoc.numPages;
+    updateModalToggleBtn();
+
     showLoading('Открываю страницу...');
     try {
       const page = await pdfDoc.getPage(pageNum);
       const pixelRatio = window.devicePixelRatio || 1;
       const baseVp = page.getViewport({ scale: 1 });
       const maxW = window.innerWidth  * 0.88;
-      const maxH = window.innerHeight * 0.82;
-      const scale = Math.min(maxW / baseVp.width, maxH / baseVp.height) * pixelRatio;
+      const maxH = window.innerHeight * 0.78;
+      // Render at MODAL_Q× screen resolution for crisp text
+      const scale = Math.min(maxW / baseVp.width, maxH / baseVp.height) * pixelRatio * MODAL_Q;
       const viewport = page.getViewport({ scale });
       const canvas = document.getElementById('modal-canvas');
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
-      canvas.style.width  = (viewport.width  / pixelRatio) + 'px';
-      canvas.style.height = (viewport.height / pixelRatio) + 'px';
+      // Display at actual screen size (CSS undoes the quality oversample)
+      canvas.style.width  = (viewport.width  / pixelRatio / MODAL_Q) + 'px';
+      canvas.style.height = (viewport.height / pixelRatio / MODAL_Q) + 'px';
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
     } finally {
       hideLoading();
     }
   }
 
+  function navigateModal(dir) {
+    if (!pdfDoc || currentModalPage === null) return;
+    const next = currentModalPage + dir;
+    if (next >= 1 && next <= pdfDoc.numPages) openPageModal(next);
+  }
+
+  function toggleFromModal() {
+    if (currentModalPage === null) return;
+    const card = document.querySelector(`.page-card[data-page="${currentModalPage}"]`);
+    togglePage(currentModalPage, card);
+  }
+
+  function updateModalToggleBtn() {
+    const btn = document.getElementById('modal-toggle-btn');
+    if (!btn || currentModalPage === null) return;
+    const selected = selectedPages.has(currentModalPage);
+    btn.textContent = selected ? '✕ Снять как разделитель' : '✓ Добавить как разделитель';
+    btn.style.background = selected ? '#fee2e2' : '#eef2ff';
+    btn.style.color      = selected ? '#991b1b' : '#4338ca';
+  }
+
   function closeModal() {
     document.getElementById('page-modal').style.display = 'none';
+    currentModalPage = null;
   }
+
+  function onModalOverlayClick(e) {
+    if (e.target === document.getElementById('page-modal')) closeModal();
+  }
+
+  window.addEventListener('scroll', () => {
+    const btn = document.getElementById('scroll-top-btn');
+    btn.style.display = window.scrollY > 300 ? 'block' : 'none';
+  });
+
+  document.addEventListener('keydown', e => {
+    const modalOpen = document.getElementById('page-modal').style.display !== 'none';
+    if (modalOpen) {
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); navigateModal(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); navigateModal(1);  }
+      if (e.key === 'Escape')     closeModal();
+    }
+  });
+
+  /* ---- Reset ---- */
 
   function resetAll() {
     pdfToken = null;
     pdfDoc = null;
     totalPages = 0;
+    currentModalPage = null;
     selectedPages.clear();
     document.getElementById('pages-grid').innerHTML = '';
     document.getElementById('results-body').innerHTML = '';
