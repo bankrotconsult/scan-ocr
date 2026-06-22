@@ -24,7 +24,7 @@ jobs:
       - name: Restart scan-app
         run: |
           cd /home/bk-admin/backend/scan-ocr
-          docker compose up -d --no-deps scan-app
+          docker compose up -d scan-app
 
       - name: Show running containers
         run: docker ps
