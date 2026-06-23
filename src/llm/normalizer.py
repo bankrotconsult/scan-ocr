@@ -23,18 +23,12 @@ _ORG_ALIASES: dict[str, str] = {
     "пфр": "СФР",
     "пенсионный фонд": "СФР",
     "фонд социального страхования": "СФР",
-    "ип": "ИП",
-    "индивидуальный предприниматель": "ИП",
+    "росгвардия": "Росгвардия",
 }
 
 _ZAGS_KEYWORDS = (
     "загс", "записи актов гражданского",
 )
-
-_IP_KEYWORDS = (
-    "индивидуальный предприниматель",
-)
-_IP_ABBREV_RE = re.compile(r'\bип\b', re.IGNORECASE)
 
 _RTK_KEYWORDS = (
     "включении требований в реестр требований кредиторов",
@@ -66,8 +60,16 @@ _SFR_KEYWORDS = (
 )
 
 _FSSF_KEYWORDS = (
-    "фссп", "федеральная служба судебных приставов",
+    "фссп",
+    "федеральная служба судебных приставов",
+    "федеральной службы судебных приставов",
+    "федеральную службу судебных приставов",
 )
+
+_ROSGVARDIA_KEYWORDS = ("росгвардия", "войска национальной гвардии")
+_BTI_KEYWORDS = ("бюро технической инвентаризации",)
+_CTI_KEYWORDS = ("центр технической инвентаризации",)
+_ROSKADASTR_KEYWORDS = ("центр кадастровой оценки",)
 
 # Matches А27-5158/2026, А27-5158-2026, А27-5158/26; result is normalized to slash + 4-digit year
 _CASE_RE = re.compile(r'[АA]\d{2}-\d+[/\-](?:(?:19|20)\d{2}|\d{2})\b')
@@ -77,6 +79,9 @@ _BANK_NAME_RE = re.compile(
     r'(?:«|")?([А-ЯЁA-ZА-Яа-яa-z]{2,30}(?:\s+[А-ЯЁA-ZА-Яа-яa-z.]{2,20})?)\s+[Бб]анк'
     r'|[Бб]анк\s+(?:«|")?([А-ЯЁA-ZА-Яа-яa-z.]{2,30}(?:\s+[А-ЯЁA-ZА-Яа-яa-z.]{2,20})?)',
 )
+
+# "Запросы" or "Реестр писем" at document start with capital letter (title/TOC)
+_CHECKS_RE = re.compile(r'\bЗапросы\b|\bРеестр\s+писем\b')
 
 
 def normalize_org(raw: str) -> str:
@@ -96,14 +101,15 @@ def apply_org_rules(raw_org: str, text: str) -> str:
     lower = text.lower()
     header = lower[:600]
 
+    # "Запросы" / "Реестр писем" as a heading → Чеки (checked on original text, capital letter matters)
+    if _CHECKS_RE.search(text[:300]):
+        return "Чеки"
+
     if "мчс" in lower:
         return "МЧС"
 
     if any(kw in lower for kw in _ZAGS_KEYWORDS):
         return "ЗАГС"
-
-    if any(kw in lower for kw in _IP_KEYWORDS) or _IP_ABBREV_RE.search(lower):
-        return "ИП"
 
     if any(kw in lower for kw in _RTK_KEYWORDS):
         return "РТК"
@@ -128,9 +134,20 @@ def apply_org_rules(raw_org: str, text: str) -> str:
             return normalize_org(raw_org)
         return _extract_bank_name(text[:600])
 
-    # МВД — explicit second-to-last, before generic fallback
     if "мвд" in lower:
         return "МВД"
+
+    if any(kw in lower for kw in _ROSGVARDIA_KEYWORDS):
+        return "Росгвардия"
+
+    if any(kw in lower for kw in _BTI_KEYWORDS):
+        return "БТИ"
+
+    if any(kw in lower for kw in _CTI_KEYWORDS):
+        return "ЦТИ"
+
+    if any(kw in lower for kw in _ROSKADASTR_KEYWORDS):
+        return "Роскадастр"
 
     return normalize_org(raw_org)
 
