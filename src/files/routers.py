@@ -6,15 +6,15 @@ import shutil
 import uuid
 from dataclasses import asdict
 
-from fastapi import APIRouter, BackgroundTasks, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, status
 from fastapi import File as FormFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from src.config.base import BaseConfig
 from src.db.db import db_session
 from src.files.dto import FileCreateDTO
 from src.files.repository import FileRepository
-from src.files.schemas import FileResponseSchema
+from src.files.schemas import FileResponseSchema, RenameFileRequest
 from src.files.service import FileService
 from src.files.sheet_sync import load_case_to_fio, load_fio_to_cases, sync_sheet, get_cache_dir, CASE_TO_FIO_FILE, FIO_TO_CASES_FILE
 from src.llm import (
@@ -35,6 +35,9 @@ router = APIRouter(
 
 _NAMED_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "upload_named.html")
 _SYNC_SHEET_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "sync_sheet.html")
+_REVIEW_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "review.html")
+
+_BAD_FOLDERS = {"Без номера дела", "Неизвестные номера дела"}
 
 
 _PERSON_FALLBACK = "ФИО не найдены"
@@ -559,6 +562,69 @@ async def get_files():
             content={"error": "server error"},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@router.get("/review", response_class=HTMLResponse)
+async def review_page():
+    with open(_REVIEW_TEMPLATE_PATH, encoding="utf-8") as f:
+        return HTMLResponse(f.read())
+
+
+@router.get("/bad-folder-list")
+async def bad_folder_list(folder: str = "Без номера дела"):
+    if folder not in _BAD_FOLDERS:
+        return JSONResponse(content={"error": "Invalid folder"}, status_code=400)
+    root = BaseConfig.SCAN_FILES_DIR
+    folder_path = os.path.join(root, folder)
+    if not await asyncio.to_thread(os.path.isdir, folder_path):
+        return {"files": []}
+    entries = await asyncio.to_thread(os.listdir, folder_path)
+    files = []
+    for name in sorted(entries):
+        full = os.path.join(folder_path, name)
+        if not await asyncio.to_thread(os.path.isfile, full):
+            continue
+        stem, ext = os.path.splitext(name)
+        parts = [p.strip() for p in stem.split("|")]
+        org = parts[0] if len(parts) > 0 else ""
+        fio = parts[1] if len(parts) > 1 else ""
+        case = parts[2] if len(parts) > 2 else ""
+        files.append({"name": name, "org": org, "fio": fio, "case": case, "ext": ext})
+    return {"files": files}
+
+
+@router.get("/serve-file")
+async def serve_file(folder: str, name: str):
+    if folder not in _BAD_FOLDERS:
+        raise HTTPException(status_code=400, detail="Invalid folder")
+    if "/" in name or "\\" in name or ".." in name:
+        raise HTTPException(status_code=400, detail="Invalid file name")
+    root = BaseConfig.SCAN_FILES_DIR
+    file_path = os.path.join(root, folder, name)
+    if not await asyncio.to_thread(os.path.isfile, file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path)
+
+
+@router.post("/rename-file")
+async def rename_file_endpoint(body: RenameFileRequest):
+    if body.folder not in _BAD_FOLDERS:
+        raise HTTPException(status_code=400, detail="Invalid folder")
+    if "/" in body.old_name or "\\" in body.old_name or ".." in body.old_name:
+        raise HTTPException(status_code=400, detail="Invalid file name")
+    root = BaseConfig.SCAN_FILES_DIR
+    folder_path = os.path.join(root, body.folder)
+    old_path = os.path.join(folder_path, body.old_name)
+    if not await asyncio.to_thread(os.path.isfile, old_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    ext = os.path.splitext(body.old_name)[1]
+    org_s = _sanitize(body.org)[:40].strip()
+    fio_s = _sanitize(body.fio).strip()
+    case_s = _sanitize(body.case).strip()
+    new_stem = f"{org_s} | {fio_s} | {case_s}"
+    new_path = await asyncio.to_thread(_unique_dest_path, folder_path, new_stem, ext)
+    await asyncio.to_thread(os.rename, old_path, new_path)
+    return {"success": True, "new_name": os.path.basename(new_path)}
 
 
 @router.get(

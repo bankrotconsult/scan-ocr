@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Корректировка файлов — Банкротконсалт</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+    header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 8px 20px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .brand { font-size: 15px; font-weight: 700; color: #6366f1; }
+    .header-back { display: inline-flex; align-items: center; gap: 6px; color: #6366f1; font-size: 13px; font-weight: 500; text-decoration: none; margin-left: auto; background: #eef2ff; padding: 5px 12px; border-radius: 7px; }
+    .header-back:hover { background: #e0e7ff; }
+
+    .workspace { flex: 1; display: flex; overflow: hidden; }
+
+    /* ─── LEFT PANE ─── */
+    .left-pane { width: 62%; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; overflow: hidden; background: #fff; }
+
+    .folder-tabs { display: flex; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
+    .folder-tab {
+      flex: 1; padding: 10px 14px; font-size: 13px; font-weight: 500;
+      border: none; background: none; cursor: pointer; color: #6b7280;
+      border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .folder-tab.active { color: #6366f1; border-bottom-color: #6366f1; background: #fafafe; }
+    .folder-tab:hover:not(.active) { color: #374151; background: #f9fafb; }
+
+    .file-list-wrap { height: 200px; overflow-y: auto; flex-shrink: 0; border-bottom: 1px solid #e5e7eb; }
+    .file-list-empty { padding: 24px 16px; font-size: 13px; color: #9ca3af; text-align: center; }
+    .file-item {
+      display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+      cursor: pointer; font-size: 13px; border-bottom: 1px solid #f3f4f6;
+      transition: background .12s;
+    }
+    .file-item:hover { background: #f5f5ff; }
+    .file-item.selected { background: #eef2ff; color: #4f46e5; font-weight: 500; }
+    .file-item .file-icon { flex-shrink: 0; color: #9ca3af; }
+    .file-item.selected .file-icon { color: #6366f1; }
+    .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .viewer-area { flex: 1; min-height: 0; overflow: hidden; position: relative; background: #f9fafb; display: flex; align-items: center; justify-content: center; }
+    .viewer-placeholder { text-align: center; color: #9ca3af; font-size: 14px; }
+    .viewer-placeholder svg { margin-bottom: 8px; }
+    #viewer-frame { width: 100%; height: 100%; border: none; display: none; }
+    #viewer-img { max-width: 100%; max-height: 100%; display: none; object-fit: contain; }
+
+    .rename-form { flex-shrink: 0; border-top: 1px solid #e5e7eb; padding: 10px 14px; background: #fff; }
+    .rename-form h3 { font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .4px; }
+    .rename-fields { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+    .field-row { display: flex; align-items: center; gap: 6px; }
+    .field-label { width: 36px; font-size: 11px; font-weight: 600; color: #9ca3af; flex-shrink: 0; text-transform: uppercase; }
+    .sep-row { display: flex; justify-content: flex-start; padding-left: 36px; }
+    .sep-label { font-size: 13px; color: #d1d5db; font-weight: 600; user-select: none; line-height: 1; }
+    .field-input {
+      flex: 1; border: 1.5px solid #d1d5db; border-radius: 7px;
+      padding: 5px 9px; font-size: 13px; color: #111; outline: none;
+      transition: border-color .15s; min-width: 0;
+    }
+    .field-input:focus { border-color: #6366f1; }
+    .field-input:disabled { background: #f9fafb; color: #9ca3af; }
+
+    .rename-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-rename {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #6366f1; color: #fff; border: none; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+    .btn-rename:hover:not(:disabled) { background: #4f46e5; }
+    .btn-rename:disabled { opacity: .45; cursor: not-allowed; }
+
+    .btn-sort {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #fff; color: #374151; border: 1.5px solid #d1d5db; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-sort:hover:not(:disabled) { border-color: #6366f1; color: #6366f1; }
+    .btn-sort:disabled { opacity: .45; cursor: not-allowed; }
+
+    .rename-msg { font-size: 12px; margin-top: 6px; display: none; }
+    .rename-msg.ok  { color: #16a34a; }
+    .rename-msg.err { color: #dc2626; }
+
+    /* ─── RIGHT PANE ─── */
+    .right-pane { width: 38%; display: flex; flex-direction: column; overflow: hidden; }
+    .right-inner { flex: 1; overflow-y: auto; padding: 16px 20px 24px; }
+
+    .search-header { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 12px; }
+    .search-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .search-input {
+      flex: 1; border: 1.5px solid #d1d5db; border-radius: 9px;
+      padding: 9px 13px; font-size: 14px; color: #111; outline: none;
+      transition: border-color .15s;
+    }
+    .search-input:focus { border-color: #6366f1; }
+    .search-input::placeholder { color: #9ca3af; }
+    .search-go {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #6366f1; color: #fff; border: none; border-radius: 9px;
+      padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+      white-space: nowrap; transition: background .15s;
+    }
+    .search-go:hover { background: #4f46e5; }
+
+    .results-meta { font-size: 12px; color: #6b7280; margin-bottom: 10px; }
+    .results-meta strong { color: #111; }
+    .results-wrap { display: none; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead th {
+      text-align: left; font-weight: 600; color: #6b7280; font-size: 11px;
+      text-transform: uppercase; letter-spacing: .5px;
+      padding: 0 10px 8px; border-bottom: 1.5px solid #e5e7eb;
+    }
+    tbody tr { border-bottom: 1px solid #f3f4f6; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 10px; color: #111; vertical-align: top; }
+    tbody td:first-child { font-weight: 500; font-size: 13px; }
+
+    .case-row { display: flex; align-items: center; gap: 4px; margin: 2px 0; }
+    .case-tag {
+      display: inline-block; background: #eef2ff; color: #4338ca;
+      border-radius: 6px; padding: 2px 8px; font-size: 12px;
+      font-family: monospace;
+    }
+    .copy-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border: none; background: none; cursor: pointer;
+      color: #9ca3af; border-radius: 5px; transition: color .12s, background .12s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { color: #6366f1; background: #eef2ff; }
+    .copy-btn.copied { color: #16a34a; }
+
+    .no-results { text-align: center; padding: 28px 0; color: #9ca3af; font-size: 14px; }
+
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 16px; flex-wrap: wrap; }
+    .page-btn {
+      min-width: 32px; height: 32px; border-radius: 7px; border: 1.5px solid #e5e7eb;
+      background: #fff; color: #374151; font-size: 13px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: border-color .15s, background .15s, color .15s;
+    }
+    .page-btn:hover:not(:disabled) { border-color: #6366f1; color: #6366f1; }
+    .page-btn.active { background: #6366f1; border-color: #6366f1; color: #fff; font-weight: 700; cursor: default; }
+    .page-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .page-ellipsis { font-size: 13px; color: #9ca3af; padding: 0 3px; }
+
+    /* toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1f2937; color: #fff; border-radius: 10px;
+      padding: 10px 20px; font-size: 13px; opacity: 0;
+      transition: opacity .2s; pointer-events: none; z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="7" x2="21" y2="7"/>
+    <path d="M3 7l3 8a3 3 0 006 0L3 7"/><path d="M21 7l-3 8a3 3 0 01-6 0L21 7"/>
+    <line x1="9" y1="21" x2="15" y2="21"/>
+  </svg>
+  <span class="brand">Банкротконсалт</span>
+  <span style="font-size:13px;color:#6b7280;margin-left:4px">/ Корректировка файлов</span>
+  <a href="/" class="header-back">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+    </svg>
+    На главную
+  </a>
+</header>
+
+<div class="workspace">
+
+  <!-- ═══════════ LEFT PANE ═══════════ -->
+  <div class="left-pane">
+
+    <!-- Folder selector tabs -->
+    <div class="folder-tabs">
+      <button class="folder-tab active" id="tab-no-case" onclick="switchFolder('Без номера дела')">
+        Без номера дела
+      </button>
+      <button class="folder-tab" id="tab-bad-case" onclick="switchFolder('Неизвестные номера дела')">
+        Неизвестные номера дела
+      </button>
+    </div>
+
+    <!-- File list -->
+    <div class="file-list-wrap" id="file-list-wrap">
+      <div class="file-list-empty">Загрузка...</div>
+    </div>
+
+    <!-- Viewer -->
+    <div class="viewer-area" id="viewer-area">
+      <div class="viewer-placeholder" id="viewer-placeholder">
+        <svg width="40" height="40" fill="none" stroke="#d1d5db" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 9.414V19a2 2 0 01-2 2z"/>
+        </svg>
+        <div>Выберите файл для просмотра</div>
+      </div>
+      <iframe id="viewer-frame" title="Просмотр файла"></iframe>
+      <img id="viewer-img" alt="Просмотр файла">
+    </div>
+
+    <!-- Rename form -->
+    <div class="rename-form">
+      <h3>Редактирование названия</h3>
+      <div class="rename-fields">
+        <div class="field-row">
+          <span class="field-label">Орг</span>
+          <input id="f-org" class="field-input" type="text" placeholder="Организация" disabled>
+        </div>
+        <div class="sep-row"><span class="sep-label">|</span></div>
+        <div class="field-row">
+          <span class="field-label">ФИО</span>
+          <input id="f-fio" class="field-input" type="text" placeholder="Фамилия Имя Отчество" disabled>
+        </div>
+        <div class="sep-row"><span class="sep-label">|</span></div>
+        <div class="field-row">
+          <span class="field-label">Дело</span>
+          <input id="f-case" class="field-input" type="text" placeholder="А27-XXXX-20XX" disabled>
+        </div>
+      </div>
+      <div class="rename-actions">
+        <button class="btn-rename" id="btn-rename" onclick="doRename()" disabled>
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          Переименовать
+        </button>
+        <button class="btn-sort" id="btn-sort" onclick="doSort()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M6 12h12M9 17h6"/>
+          </svg>
+          Авто-сортировка
+        </button>
+      </div>
+      <div class="rename-msg" id="rename-msg"></div>
+    </div>
+
+  </div><!-- /left-pane -->
+
+  <!-- ═══════════ RIGHT PANE ═══════════ -->
+  <div class="right-pane">
+    <div class="right-inner">
+      <div class="search-header">Поиск клиента</div>
+      <div class="search-row">
+        <input id="search-input" class="search-input" type="text"
+               placeholder="ФИО или номер дела..."
+               onkeydown="if(event.key==='Enter') doSearch(1)">
+        <button class="search-go" onclick="doSearch(1)">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
+          </svg>
+          Найти
+        </button>
+      </div>
+
+      <div class="results-wrap" id="results-wrap">
+        <div class="results-meta" id="results-meta"></div>
+        <table id="results-table">
+          <thead>
+            <tr><th>ФИО</th><th>Номера дел</th></tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+        <div class="no-results" id="no-results" style="display:none">Ничего не найдено</div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </div><!-- /right-pane -->
+
+</div><!-- /workspace -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp', '.gif', '.webp']);
+
+  let _currentFolder = 'Без номера дела';
+  let _currentFile = null;
+  let _searchPage = 1;
+
+  // ── Folder switch ──────────────────────────────────────────────────
+  function switchFolder(folder) {
+    _currentFolder = folder;
+    _currentFile = null;
+    clearViewer();
+    clearRenameForm();
+
+    document.getElementById('tab-no-case').classList.toggle('active', folder === 'Без номера дела');
+    document.getElementById('tab-bad-case').classList.toggle('active', folder === 'Неизвестные номера дела');
+
+    loadFileList();
+  }
+
+  // ── File list ──────────────────────────────────────────────────────
+  async function loadFileList() {
+    const wrap = document.getElementById('file-list-wrap');
+    wrap.innerHTML = '<div class="file-list-empty">Загрузка...</div>';
+    try {
+      const r = await fetch('/files/bad-folder-list?folder=' + encodeURIComponent(_currentFolder));
+      const d = await r.json();
+      renderFileList(d.files || []);
+    } catch(e) {
+      wrap.innerHTML = '<div class="file-list-empty">Ошибка загрузки</div>';
+    }
+  }
+
+  function renderFileList(files) {
+    const wrap = document.getElementById('file-list-wrap');
+    if (!files.length) {
+      wrap.innerHTML = '<div class="file-list-empty">Файлов нет</div>';
+      return;
+    }
+    wrap.innerHTML = files.map(f => {
+      const isPdf = f.ext.toLowerCase() === '.pdf';
+      const icon = isPdf
+        ? `<svg class="file-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 9.414V19a2 2 0 01-2 2z"/></svg>`
+        : `<svg class="file-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+      return `<div class="file-item" data-name="${esc(f.name)}" data-org="${esc(f.org)}" data-fio="${esc(f.fio)}" data-case="${esc(f.case)}" data-ext="${esc(f.ext)}" onclick="selectFile(this)">
+        ${icon}
+        <span class="file-name" title="${esc(f.name)}">${esc(f.name)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── File select / viewer ───────────────────────────────────────────
+  function selectFile(el) {
+    document.querySelectorAll('.file-item.selected').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+
+    const name = el.dataset.name;
+    const ext  = el.dataset.ext.toLowerCase();
+    _currentFile = name;
+
+    const url = '/files/serve-file?folder=' + encodeURIComponent(_currentFolder) + '&name=' + encodeURIComponent(name);
+
+    const frame = document.getElementById('viewer-frame');
+    const img   = document.getElementById('viewer-img');
+    const ph    = document.getElementById('viewer-placeholder');
+
+    ph.style.display = 'none';
+
+    if (IMAGE_EXTS.has(ext)) {
+      frame.style.display = 'none';
+      frame.src = '';
+      img.style.display = 'block';
+      img.src = url;
+    } else {
+      img.style.display = 'none';
+      img.src = '';
+      frame.style.display = 'block';
+      frame.src = url;
+    }
+
+    // Fill rename form
+    document.getElementById('f-org').value  = el.dataset.org;
+    document.getElementById('f-fio').value  = el.dataset.fio;
+    document.getElementById('f-case').value = el.dataset.case;
+    ['f-org','f-fio','f-case'].forEach(id => {
+      document.getElementById(id).disabled = false;
+    });
+    document.getElementById('btn-rename').disabled = false;
+    clearRenameMsg();
+  }
+
+  function clearViewer() {
+    const frame = document.getElementById('viewer-frame');
+    const img   = document.getElementById('viewer-img');
+    const ph    = document.getElementById('viewer-placeholder');
+    frame.style.display = 'none'; frame.src = '';
+    img.style.display = 'none';   img.src = '';
+    ph.style.display = '';
+  }
+
+  function clearRenameForm() {
+    ['f-org','f-fio','f-case'].forEach(id => {
+      const el = document.getElementById(id);
+      el.value = ''; el.disabled = true;
+    });
+    document.getElementById('btn-rename').disabled = true;
+    clearRenameMsg();
+  }
+
+  function clearRenameMsg() {
+    const m = document.getElementById('rename-msg');
+    m.style.display = 'none'; m.textContent = '';
+  }
+
+  // ── Rename ─────────────────────────────────────────────────────────
+  async function doRename() {
+    if (!_currentFile) return;
+    const btn = document.getElementById('btn-rename');
+    const msg = document.getElementById('rename-msg');
+    btn.disabled = true;
+    clearRenameMsg();
+
+    const body = {
+      folder:   _currentFolder,
+      old_name: _currentFile,
+      org:      document.getElementById('f-org').value.trim(),
+      fio:      document.getElementById('f-fio').value.trim(),
+      case:     document.getElementById('f-case').value.trim(),
+    };
+
+    try {
+      const r = await fetch('/files/rename-file', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        msg.className = 'rename-msg err';
+        msg.textContent = 'Ошибка: ' + (d.detail || d.error || 'неизвестная ошибка');
+        msg.style.display = 'block';
+        btn.disabled = false;
+        return;
+      }
+      msg.className = 'rename-msg ok';
+      msg.textContent = 'Переименовано: ' + d.new_name;
+      msg.style.display = 'block';
+      _currentFile = d.new_name;
+      // Refresh list keeping selection
+      await loadFileList();
+      // Re-select the renamed file
+      const items = document.querySelectorAll('.file-item');
+      items.forEach(el => {
+        if (el.dataset.name === d.new_name) {
+          el.classList.add('selected');
+        }
+      });
+    } catch(e) {
+      msg.className = 'rename-msg err';
+      msg.textContent = 'Сетевая ошибка: ' + e.message;
+      msg.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ── Auto-sort ──────────────────────────────────────────────────────
+  async function doSort() {
+    const btn = document.getElementById('btn-sort');
+    btn.disabled = true;
+    btn.textContent = 'Сортировка...';
+    try {
+      const r = await fetch('/files/scan-bad', { method: 'POST' });
+      const d = await r.json();
+      const moved = (d || []).filter(x => x.status === 'done').length;
+      showToast(moved ? `Перемещено файлов: ${moved}` : 'Нет файлов для перемещения');
+      clearViewer(); clearRenameForm(); _currentFile = null;
+      await loadFileList();
+    } catch(e) {
+      showToast('Ошибка: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M6 12h12M9 17h6"/></svg> Авто-сортировка`;
+    }
+  }
+
+  // ── Search ─────────────────────────────────────────────────────────
+  async function doSearch(page) {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) return;
+    _searchPage = page;
+    try {
+      const r = await fetch('/files/search-cache?q=' + encodeURIComponent(q) + '&page=' + page);
+      const d = await r.json();
+      renderResults(d);
+    } catch(e) {
+      document.getElementById('results-wrap').style.display = 'block';
+      document.getElementById('results-meta').textContent = 'Ошибка: ' + e.message;
+      document.getElementById('results-table').style.display = 'none';
+      document.getElementById('no-results').style.display = 'none';
+      document.getElementById('pagination').innerHTML = '';
+    }
+  }
+
+  function renderResults(d) {
+    const wrap  = document.getElementById('results-wrap');
+    const meta  = document.getElementById('results-meta');
+    const body  = document.getElementById('results-body');
+    const noRes = document.getElementById('no-results');
+    const table = document.getElementById('results-table');
+    const pag   = document.getElementById('pagination');
+    wrap.style.display = 'block';
+
+    if (d.total === 0) {
+      meta.textContent = '';
+      table.style.display = 'none';
+      noRes.style.display = 'block';
+      pag.innerHTML = '';
+      return;
+    }
+
+    const from = (d.page - 1) * 10 + 1;
+    const to   = Math.min(d.page * 10, d.total);
+    meta.innerHTML = 'Найдено: <strong>' + d.total + '</strong> — показаны ' + from + '–' + to;
+    table.style.display = '';
+    noRes.style.display = 'none';
+
+    body.innerHTML = d.results.map(row => {
+      const caseTags = row.cases.map(c =>
+        `<div class="case-row">
+          <span class="case-tag">${esc(c)}</span>
+          <button class="copy-btn" title="Скопировать" data-case="${esc(c)}" onclick="copyCase(this)">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
+          </button>
+        </div>`
+      ).join('');
+      return `<tr><td>${esc(row.fio)}</td><td>${caseTags}</td></tr>`;
+    }).join('');
+
+    renderPagination(d.page, d.pages, pag);
+  }
+
+  const _ICON_COPY = `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+  const _ICON_CHECK = `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline stroke-linecap="round" stroke-linejoin="round" points="20 6 9 17 4 12"/></svg>`;
+
+  function copyCase(btn) {
+    const text = btn.dataset.case;
+    const doConfirm = () => {
+      btn.innerHTML = _ICON_CHECK;
+      btn.classList.add('copied');
+      showToast('Скопировано: ' + text);
+      setTimeout(() => { btn.innerHTML = _ICON_COPY; btn.classList.remove('copied'); }, 1800);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(doConfirm).catch(() => fallbackCopy(text, doConfirm));
+    } else {
+      fallbackCopy(text, doConfirm);
+    }
+  }
+
+  function fallbackCopy(text, onDone) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); onDone(); }
+    catch { showToast('Не удалось скопировать'); }
+    document.body.removeChild(ta);
+  }
+
+  function renderPagination(cur, total, el) {
+    if (total <= 1) { el.innerHTML = ''; return; }
+    const pages = [];
+    for (let i = 1; i <= total; i++) {
+      if (i === 1 || i === total || (i >= cur - 2 && i <= cur + 2)) pages.push(i);
+      else if (pages[pages.length - 1] !== '…') pages.push('…');
+    }
+    let html = `<button class="page-btn" onclick="doSearch(${cur - 1})" ${cur === 1 ? 'disabled' : ''}>‹</button>`;
+    pages.forEach(p => {
+      if (p === '…') html += '<span class="page-ellipsis">…</span>';
+      else html += `<button class="page-btn${p === cur ? ' active' : ''}" onclick="doSearch(${p})">${p}</button>`;
+    });
+    html += `<button class="page-btn" onclick="doSearch(${cur + 1})" ${cur === total ? 'disabled' : ''}>›</button>`;
+    el.innerHTML = html;
+  }
+
+  // ── Utils ──────────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  let _toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────
+  loadFileList();
+</script>
+</body>
+</html>

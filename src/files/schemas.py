@@ -9,3 +9,11 @@ class FileResponseSchema(BaseModel):
     context: str | None = None
     context_blocks: str | None = None
     status: str | None = None
+
+
+class RenameFileRequest(BaseModel):
+    folder: str
+    old_name: str
+    org: str
+    fio: str
+    case: str
