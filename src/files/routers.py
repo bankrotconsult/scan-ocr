@@ -228,9 +228,10 @@ async def do_sync_sheet():
             status_code=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
-        print(f"[SHEET] Ошибка синхронизации: {e}")
+        import traceback
+        print(f"[SHEET] Ошибка синхронизации: {e!r}\n{traceback.format_exc()}")
         return JSONResponse(
-            content={"error": str(e)},
+            content={"error": repr(e)},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
