@@ -4,6 +4,7 @@ from starlette.requests import Request
 
 from src.users.admin import UserAdmin
 from src.files.admin import FileAdmin
+from src.stats.admin import ProcessingStatAdmin
 
 from src.config.base import BaseConfig
 from src.db.db import db_session, engine
@@ -53,6 +54,7 @@ def init_admin(app):
 
         admin.add_view(UserAdmin)
         admin.add_view(FileAdmin)
+        admin.add_view(ProcessingStatAdmin)
 
         return admin
     except Exception as e:

@@ -3,6 +3,7 @@ import json
 import os
 import re
 import shutil
+import time
 import uuid
 from dataclasses import asdict
 
@@ -26,6 +27,9 @@ from src.llm import (
     lookup_person_by_case,
 )
 from src.ocr import PaddleOCRService
+from src.stats.dto import StatIncrementDTO
+from src.stats.repository import StatsRepository
+from src.stats.service import StatsService
 
 
 router = APIRouter(
@@ -167,6 +171,11 @@ async def upload_named_files(files: list[UploadFile] = FormFile(...)):
             dest_path = await asyncio.to_thread(_unique_dest_path, dest_dir, base_name, ext)
             await asyncio.to_thread(shutil.move, temp_path, dest_path)
             results.append({"name": original_name, "status": "done", "dest": dest_path})
+            try:
+                async with db_session() as s:
+                    await StatsService(StatsRepository(s)).increment(StatIncrementDTO(outcome="success"))
+            except Exception as _se:
+                print(f"[STATS] Ошибка записи: {_se}")
         except Exception as e:
             if await asyncio.to_thread(os.path.exists, temp_path):
                 await asyncio.to_thread(os.remove, temp_path)
@@ -327,6 +336,11 @@ async def scan_bad_folders(folder: str = _DIR_NO_CASE):
                 dest_path = await asyncio.to_thread(_unique_dest_path, dest_dir, base_name, ext)
                 await asyncio.to_thread(shutil.move, file_path, dest_path)
                 results.append({"name": filename, "status": "done", "dest": dest_path})
+                try:
+                    async with db_session() as s:
+                        await StatsService(StatsRepository(s)).increment(StatIncrementDTO(outcome="success"))
+                except Exception as _se:
+                    print(f"[STATS] Ошибка записи: {_se}")
             except Exception as e:
                 results.append({"name": filename, "status": "error", "dest": str(e)})
 
@@ -403,6 +417,7 @@ async def recover_uploads() -> None:
 
 
 async def _run_ocr(file_id: int, file_path: str) -> None:
+    _t0 = time.monotonic()
     try:
         blocks = await PaddleOCRService().predict_structured(file_path)
         text = "\n".join(b["text"] for b in blocks)
@@ -484,6 +499,15 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
                     else:
                         dest_dir = os.path.join(root, _DIR_NO_CASE)
 
+        if dest_dir == os.path.join(root, _DIR_NO_CASE):
+            _stat_outcome = "no_case"
+        elif dest_dir == os.path.join(root, _DIR_BAD_CASE):
+            _stat_outcome = "bad_case"
+        elif dest_dir == os.path.join(root, _DIR_NO_PERSON):
+            _stat_outcome = "no_person"
+        else:
+            _stat_outcome = "success"
+
         person = _normalize_fio(person)
         base_name = _make_filename(org, person, case)
         ext = os.path.splitext(file_path)[1]
@@ -502,12 +526,28 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
                 org=org,
                 person=person,
             )
+
+        try:
+            async with db_session() as s:
+                await StatsService(StatsRepository(s)).increment(
+                    StatIncrementDTO(outcome=_stat_outcome, seconds=time.monotonic() - _t0)
+                )
+        except Exception as _se:
+            print(f"[STATS] Ошибка записи: {_se}")
+
     except Exception as e:
         print(f"OCR error for file {file_id}: {e}")
         if await asyncio.to_thread(os.path.exists, file_path):
             await asyncio.to_thread(os.remove, file_path)
         async with db_session() as s:
             await FileService(FileRepository(s)).update_ocr_result(file_id, "", "error")
+        try:
+            async with db_session() as s:
+                await StatsService(StatsRepository(s)).increment(
+                    StatIncrementDTO(outcome="error", seconds=time.monotonic() - _t0)
+                )
+        except Exception as _se:
+            print(f"[STATS] Ошибка записи: {_se}")
 
 
 @router.post(

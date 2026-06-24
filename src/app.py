@@ -39,6 +39,8 @@ async def index():
 
 from src.files.routers import router as files_router
 from src.split.routers import router as split_router
+from src.stats.routers import router as stats_router
 
 app.include_router(files_router)
 app.include_router(split_router)
+app.include_router(stats_router)

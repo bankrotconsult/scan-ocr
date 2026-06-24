@@ -9,6 +9,7 @@ from alembic import context
 from src.db.db import ModelBase
 from src.files.models import File # noqa
 from src.users.models import User # noqa
+from src.stats.models import ProcessingStat # noqa
 
 config = context.config
 
