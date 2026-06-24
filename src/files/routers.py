@@ -15,7 +15,7 @@ from src.config.base import BaseConfig
 from src.db.db import db_session
 from src.files.dto import FileCreateDTO
 from src.files.repository import FileRepository
-from src.files.schemas import FileResponseSchema, RenameFileRequest
+from src.files.schemas import FileResponseSchema, RenameFileRequest, ScanBadSelectedRequest
 from src.files.service import FileService
 from src.files.sheet_sync import load_case_to_fio, load_fio_to_cases, sync_sheet, get_cache_dir, CASE_TO_FIO_FILE, FIO_TO_CASES_FILE
 from src.llm import (
@@ -346,6 +346,58 @@ async def scan_bad_folders(folder: str = _DIR_NO_CASE):
 
     if not results:
         results.append({"name": "—", "status": "info", "dest": "Файлов в подходящем формате не найдено"})
+
+    return results
+
+
+@router.post("/scan-bad-selected")
+async def scan_bad_selected(body: ScanBadSelectedRequest):
+    """Move specific files from a bad folder to correct destinations by filename."""
+    if body.folder not in _BAD_FOLDERS:
+        return JSONResponse(content={"error": "Invalid folder"}, status_code=400)
+    root = BaseConfig.SCAN_FILES_DIR
+    results = []
+
+    for filename in body.filenames:
+        if "/" in filename or "\\" in filename or ".." in filename:
+            results.append({"name": filename, "status": "error", "dest": "Недопустимое имя файла"})
+            continue
+
+        file_path = os.path.join(root, body.folder, filename)
+        if not await asyncio.to_thread(os.path.isfile, file_path):
+            results.append({"name": filename, "status": "error", "dest": "Файл не найден"})
+            continue
+
+        stem = os.path.splitext(filename)[0]
+        parts = [p.strip() for p in stem.split("|")]
+        if len(parts) < 3:
+            results.append({"name": filename, "status": "error", "dest": "Неверный формат имени (ожидается: Орг | ФИО | Номер дела)"})
+            continue
+
+        org = parts[0]
+        person = _normalize_fio(parts[1])
+        case_raw = parts[2]
+        case = extract_case_number(case_raw)
+
+        if not person or person == _PERSON_FALLBACK or case == "UNKNOWN":
+            results.append({"name": filename, "status": "error", "dest": "Не удалось определить ФИО или номер дела из имени файла"})
+            continue
+
+        ext = os.path.splitext(filename)[1]
+        try:
+            dest_dir = _client_dest_dir(person, case, root)
+            await asyncio.to_thread(os.makedirs, dest_dir, exist_ok=True)
+            base_name = _make_filename(org, person, case)
+            dest_path = await asyncio.to_thread(_unique_dest_path, dest_dir, base_name, ext)
+            await asyncio.to_thread(shutil.move, file_path, dest_path)
+            results.append({"name": filename, "status": "done", "dest": dest_path})
+            try:
+                async with db_session() as s:
+                    await StatsService(StatsRepository(s)).increment(StatIncrementDTO(outcome="success"))
+            except Exception as _se:
+                print(f"[STATS] Ошибка записи: {_se}")
+        except Exception as e:
+            results.append({"name": filename, "status": "error", "dest": str(e)})
 
     return results
 

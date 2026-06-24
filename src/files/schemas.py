@@ -17,3 +17,8 @@ class RenameFileRequest(BaseModel):
     org: str
     fio: str
     case: str
+
+
+class ScanBadSelectedRequest(BaseModel):
+    folder: str
+    filenames: list[str]

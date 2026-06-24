@@ -150,6 +150,18 @@
     .page-btn:disabled { opacity: .35; cursor: not-allowed; }
     .page-ellipsis { font-size: 13px; color: #9ca3af; padding: 0 3px; }
 
+    /* checkboxes (Неизвестные номера дела) */
+    .master-cb-bar {
+      display: none; align-items: center; gap: 8px;
+      padding: 6px 14px; border-bottom: 1px solid #e5e7eb;
+      background: #fafafe; flex-shrink: 0;
+    }
+    .master-cb-bar.visible { display: flex; }
+    .master-cb-bar label { font-size: 12px; color: #6b7280; cursor: pointer; user-select: none; }
+    .file-cb { accent-color: #6366f1; width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+    .file-list-wrap.show-cb .file-cb { display: inline-block; }
+    .file-list-wrap .file-cb { display: none; }
+
     /* toast */
     .toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -191,6 +203,12 @@
       <button class="folder-tab" id="tab-bad-case" onclick="switchFolder('Неизвестные номера дела')">
         Неизвестные номера дела
       </button>
+    </div>
+
+    <!-- Master checkbox bar (shown only for Неизвестные номера дела) -->
+    <div class="master-cb-bar" id="master-cb-bar">
+      <input type="checkbox" id="master-cb" class="file-cb" onchange="onMasterCbChange()">
+      <label for="master-cb">Выбрать все</label>
     </div>
 
     <!-- File list -->
@@ -242,7 +260,6 @@
           </svg>
           Авто-сортировка
         </button>
-        <input type="file" id="sort-file-input" multiple style="display:none" onchange="sortFilesUpload(this)">
       </div>
       <div class="rename-msg" id="rename-msg"></div>
     </div>
@@ -300,6 +317,11 @@
     document.getElementById('tab-no-case').classList.toggle('active', folder === 'Без номера дела');
     document.getElementById('tab-bad-case').classList.toggle('active', folder === 'Неизвестные номера дела');
 
+    const isBadCase = folder === 'Неизвестные номера дела';
+    document.getElementById('master-cb-bar').classList.toggle('visible', isBadCase);
+    document.getElementById('file-list-wrap').classList.toggle('show-cb', isBadCase);
+    resetMasterCb();
+
     loadFileList();
   }
 
@@ -317,6 +339,7 @@
   }
 
   function renderFileList(files) {
+    resetMasterCb();
     const wrap = document.getElementById('file-list-wrap');
     if (!files.length) {
       wrap.innerHTML = '<div class="file-list-empty">Файлов нет</div>';
@@ -328,6 +351,7 @@
         ? `<svg class="file-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 9.414V19a2 2 0 01-2 2z"/></svg>`
         : `<svg class="file-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
       return `<div class="file-item" data-name="${esc(f.name)}" data-org="${esc(f.org)}" data-fio="${esc(f.fio)}" data-case="${esc(f.case)}" data-ext="${esc(f.ext)}" onclick="selectFile(this)">
+        <input type="checkbox" class="file-cb" data-name="${esc(f.name)}" onclick="event.stopPropagation()" onchange="onFileCbChange()">
         ${icon}
         <span class="file-name" title="${esc(f.name)}">${esc(f.name)}</span>
       </div>`;
@@ -456,9 +480,7 @@
     if (_currentFolder === 'Без номера дела') {
       _doSortServer();
     } else {
-      const inp = document.getElementById('sort-file-input');
-      inp.value = '';
-      inp.click();
+      _doSortSelected();
     }
   }
 
@@ -481,16 +503,19 @@
     }
   }
 
-  async function sortFilesUpload(inp) {
-    if (!inp.files.length) return;
+  async function _doSortSelected() {
+    const checked = [...document.querySelectorAll('.file-list-wrap .file-cb:checked')];
+    if (!checked.length) { showToast('Отметьте файлы для сортировки'); return; }
+    const filenames = checked.map(cb => cb.dataset.name);
     const btn = document.getElementById('btn-sort');
     btn.disabled = true;
-    btn.textContent = 'Загрузка...';
+    btn.textContent = 'Сортировка...';
     try {
-      const fd = new FormData();
-      Array.from(inp.files).forEach(f => fd.append('files', f));
-      const r = await fetch('/files/named', { method: 'POST', body: fd });
-      if (!r.ok) throw new Error(await r.text());
+      const r = await fetch('/files/scan-bad-selected', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({folder: _currentFolder, filenames}),
+      });
       const results = await r.json();
       const moved = results.filter(x => x.status === 'done').length;
       const errors = results.filter(x => x.status === 'error').length;
@@ -498,6 +523,7 @@
       if (errors) msg += `, ошибок: ${errors}`;
       showToast(msg);
       clearViewer(); clearRenameForm(); _currentFile = null;
+      resetMasterCb();
       await loadFileList();
     } catch(e) {
       showToast('Ошибка: ' + e.message);
@@ -505,6 +531,36 @@
       btn.disabled = false;
       btn.innerHTML = _SORT_BTN_HTML;
     }
+  }
+
+  // ── Checkboxes ─────────────────────────────────────────────────────
+  function onMasterCbChange() {
+    const master = document.getElementById('master-cb');
+    document.querySelectorAll('.file-list-wrap .file-cb').forEach(cb => {
+      cb.checked = master.checked;
+    });
+  }
+
+  function onFileCbChange() {
+    const all = [...document.querySelectorAll('.file-list-wrap .file-cb')];
+    const checkedCount = all.filter(cb => cb.checked).length;
+    const master = document.getElementById('master-cb');
+    if (checkedCount === 0) {
+      master.checked = false;
+      master.indeterminate = false;
+    } else if (checkedCount === all.length) {
+      master.checked = true;
+      master.indeterminate = false;
+    } else {
+      master.checked = false;
+      master.indeterminate = true;
+    }
+  }
+
+  function resetMasterCb() {
+    const master = document.getElementById('master-cb');
+    master.checked = false;
+    master.indeterminate = false;
   }
 
   // ── Search ─────────────────────────────────────────────────────────
