@@ -286,13 +286,15 @@ async def search_cache(q: str = "", page: int = 1):
 
 
 @router.post("/scan-bad")
-async def scan_bad_folders():
-    """Scan bad folders for properly-named files and move them to correct destinations."""
+async def scan_bad_folders(folder: str = _DIR_NO_CASE):
+    """Scan a bad folder for properly-named files and move them to correct destinations."""
+    if folder not in _BAD_FOLDERS:
+        return JSONResponse(content={"error": "Invalid folder"}, status_code=400)
     root = BaseConfig.SCAN_FILES_DIR
     results = []
 
     scan_dirs = [
-        os.path.join(root, _DIR_NO_CASE),
+        os.path.join(root, folder),
     ]
 
     for scan_dir in scan_dirs:

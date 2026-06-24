@@ -1,6 +1,6 @@
 from src.llm.org_rules import ORG_RULES
 
-_ALPHABET = "абвгдежзиклмнопр"
+_ALPHABET = "абвгдежзиклмнопрстуф"
 _rules_block = "\n".join(
     f"  {_ALPHABET[i]}) {rule}"
     for i, rule in enumerate(ORG_RULES)

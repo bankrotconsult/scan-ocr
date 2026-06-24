@@ -70,6 +70,10 @@ _ROSGVARDIA_KEYWORDS = ("росгвардия", "войска националь
 _BTI_KEYWORDS = ("бюро технической инвентаризации",)
 _CTI_KEYWORDS = ("центр технической инвентаризации",)
 _ROSKADASTR_KEYWORDS = ("центр кадастровой оценки",)
+_MOBILE_CARD_KEYWORDS = ("мобильная карта",)
+_YUMANI_KEYWORDS = ("юмани",)
+_TECHNADZOR_KEYWORDS = ("по надзору за техническим состоянием самоходных машин",)
+_SOVKOMBANK_KEYWORDS = ("совкомбанк",)
 
 # Matches А27-5158/2026, А27-5158-2026, А27-5158/26; result is normalized to slash + 4-digit year
 _CASE_RE = re.compile(r'[АA]\d{2}-\d+[/\-](?:(?:19|20)\d{2}|\d{2})\b')
@@ -111,6 +115,12 @@ def apply_org_rules(raw_org: str, text: str) -> str:
     if any(kw in lower for kw in _ZAGS_KEYWORDS):
         return "ЗАГС"
 
+    if any(kw in header for kw in _MOBILE_CARD_KEYWORDS):
+        return "Мобильная карта"
+
+    if any(kw in header for kw in _YUMANI_KEYWORDS):
+        return "Юмани"
+
     if any(kw in lower for kw in _RTK_KEYWORDS):
         return "РТК"
 
@@ -128,6 +138,12 @@ def apply_org_rules(raw_org: str, text: str) -> str:
 
     if any(kw in lower for kw in _FSSF_KEYWORDS):
         return "ФССП"
+
+    if any(kw in lower for kw in _TECHNADZOR_KEYWORDS):
+        return "Технадзор"
+
+    if any(kw in lower for kw in _SOVKOMBANK_KEYWORDS):
+        return "Совкомбанк РТК"
 
     if "банк" in header:
         if "банк" in raw_org.lower():

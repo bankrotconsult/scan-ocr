@@ -168,7 +168,7 @@
     <path d="M3 7l3 8a3 3 0 006 0L3 7"/><path d="M21 7l-3 8a3 3 0 01-6 0L21 7"/>
     <line x1="9" y1="21" x2="15" y2="21"/>
   </svg>
-  <span class="brand">Банкротконсалт</span>
+  <a href="/" class="brand" style="text-decoration:none">Банкротконсалт</a>
   <span style="font-size:13px;color:#6b7280;margin-left:4px">/ Корректировка файлов</span>
   <a href="/" class="header-back">
     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
@@ -242,6 +242,7 @@
           </svg>
           Авто-сортировка
         </button>
+        <input type="file" id="sort-file-input" multiple style="display:none" onchange="sortFilesUpload(this)">
       </div>
       <div class="rename-msg" id="rename-msg"></div>
     </div>
@@ -449,12 +450,24 @@
   }
 
   // ── Auto-sort ──────────────────────────────────────────────────────
-  async function doSort() {
+  const _SORT_BTN_HTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M6 12h12M9 17h6"/></svg> Авто-сортировка`;
+
+  function doSort() {
+    if (_currentFolder === 'Без номера дела') {
+      _doSortServer();
+    } else {
+      const inp = document.getElementById('sort-file-input');
+      inp.value = '';
+      inp.click();
+    }
+  }
+
+  async function _doSortServer() {
     const btn = document.getElementById('btn-sort');
     btn.disabled = true;
     btn.textContent = 'Сортировка...';
     try {
-      const r = await fetch('/files/scan-bad', { method: 'POST' });
+      const r = await fetch('/files/scan-bad?folder=' + encodeURIComponent(_currentFolder), { method: 'POST' });
       const d = await r.json();
       const moved = (d || []).filter(x => x.status === 'done').length;
       showToast(moved ? `Перемещено файлов: ${moved}` : 'Нет файлов для перемещения');
@@ -464,7 +477,33 @@
       showToast('Ошибка: ' + e.message);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M6 12h12M9 17h6"/></svg> Авто-сортировка`;
+      btn.innerHTML = _SORT_BTN_HTML;
+    }
+  }
+
+  async function sortFilesUpload(inp) {
+    if (!inp.files.length) return;
+    const btn = document.getElementById('btn-sort');
+    btn.disabled = true;
+    btn.textContent = 'Загрузка...';
+    try {
+      const fd = new FormData();
+      Array.from(inp.files).forEach(f => fd.append('files', f));
+      const r = await fetch('/files/named', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error(await r.text());
+      const results = await r.json();
+      const moved = results.filter(x => x.status === 'done').length;
+      const errors = results.filter(x => x.status === 'error').length;
+      let msg = moved ? `Перемещено файлов: ${moved}` : 'Нет файлов для перемещения';
+      if (errors) msg += `, ошибок: ${errors}`;
+      showToast(msg);
+      clearViewer(); clearRenameForm(); _currentFile = null;
+      await loadFileList();
+    } catch(e) {
+      showToast('Ошибка: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = _SORT_BTN_HTML;
     }
   }
 
@@ -513,7 +552,7 @@
       const caseTags = row.cases.map(c =>
         `<div class="case-row">
           <span class="case-tag">${esc(c)}</span>
-          <button class="copy-btn" title="Скопировать" data-case="${esc(c)}" onclick="copyCase(this)">
+          <button class="copy-btn" title="Скопировать номер дела" data-case="${esc(c)}" onclick="copyCase(this)">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
@@ -521,7 +560,20 @@
           </button>
         </div>`
       ).join('');
-      return `<tr><td>${esc(row.fio)}</td><td>${caseTags}</td></tr>`;
+      return `<tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span>${esc(row.fio)}</span>
+            <button class="copy-btn" title="Скопировать ФИО" data-case="${esc(row.fio)}" onclick="copyCase(this)">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+              </svg>
+            </button>
+          </div>
+        </td>
+        <td>${caseTags}</td>
+      </tr>`;
     }).join('');
 
     renderPagination(d.page, d.pages, pag);

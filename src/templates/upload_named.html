@@ -16,14 +16,6 @@
     .hint-main { font-size: 14px; color: #888; margin-bottom: 28px; }
     .hint-main code { background: #f0f0f0; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
 
-    /* Tabs */
-    .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: #e5e7eb; border-radius: 10px; padding: 4px; width: fit-content; }
-    .tab {
-      padding: 8px 20px; border-radius: 7px; font-size: 14px; font-weight: 500;
-      cursor: pointer; border: none; background: transparent; color: #666; transition: all .15s;
-    }
-    .tab.active { background: #fff; color: #111; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
-
     /* Upload */
     .upload-box {
       background: #fff; border: 2px dashed #ccc; border-radius: 12px;
@@ -43,33 +35,6 @@
     .file-item { padding: 10px 16px; font-size: 14px; border-bottom: 1px solid #f5f5f5; display: flex; align-items: center; gap: 8px; }
     .file-item:last-child { border-bottom: none; }
     .file-item svg { flex-shrink: 0; color: #999; }
-
-    /* Scan section */
-    .scan-box { background: #fff; border-radius: 12px; padding: 32px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-    .scan-box p { color: #666; font-size: 14px; line-height: 1.7; margin-bottom: 24px; }
-    .scan-box ol { text-align: left; max-width: 520px; margin: 0 auto 24px; padding-left: 20px; font-size: 14px; color: #555; line-height: 2; }
-    .scan-box code { background: #f5f5f5; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
-    .folder-link-btn {
-      display: inline-flex; align-items: center; gap: 5px;
-      background: none; border: none; padding: 0;
-      color: #6366f1; font-size: 14px; font-weight: 600; cursor: pointer;
-      text-decoration: underline; text-underline-offset: 2px;
-    }
-    .folder-link-btn:hover { color: #4f46e5; }
-
-    /* Path modal */
-    .path-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: center; justify-content: center; }
-    .path-modal-overlay.open { display: flex; }
-    .path-modal { background: #fff; border-radius: 14px; padding: 28px; max-width: 520px; width: 90%; box-shadow: 0 16px 48px rgba(0,0,0,.2); }
-    .path-modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #111; }
-    .path-modal p { font-size: 14px; color: #555; margin-bottom: 16px; line-height: 1.6; }
-    .path-box { background: #f3f4f6; border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 13px; color: #1f2937; word-break: break-all; margin-bottom: 16px; }
-    .path-modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
-    .btn-sm { padding: 8px 18px; font-size: 14px; border-radius: 8px; cursor: pointer; border: none; font-weight: 500; transition: background .15s; }
-    .btn-copy { background: #6366f1; color: #fff; }
-    .btn-copy:hover { background: #4f46e5; }
-    .btn-close-sm { background: #f3f4f6; color: #374151; }
-    .btn-close-sm:hover { background: #e5e7eb; }
 
     .actions { display: flex; gap: 12px; align-items: center; margin-top: 20px; }
     .btn {
@@ -113,7 +78,7 @@
     <path d="M3 7l3 8a3 3 0 006 0L3 7"/><path d="M21 7l-3 8a3 3 0 01-6 0L21 7"/>
     <line x1="9" y1="21" x2="15" y2="21"/>
   </svg>
-  <span class="brand">Банкротконсалт</span>
+  <a href="/" class="brand" style="text-decoration:none">Банкротконсалт</a>
 </header>
 <div class="container">
   <a href="/" style="display:inline-flex;align-items:center;gap:8px;color:#fff;font-size:14px;font-weight:500;text-decoration:none;background:#6366f1;padding:8px 18px;border-radius:8px;margin-bottom:24px;">
@@ -127,11 +92,6 @@
   <p class="hint-main">
     Формат имени: <code>Орг | Фамилия Имя Отчество | А73-12345-2026.pdf</code>
   </p>
-
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('upload')">Загрузить с компьютера</button>
-    <button class="tab" onclick="switchTab('scan')">Сканировать папки сервера</button>
-  </div>
 
   <!-- TAB: Upload -->
   <div id="tab-upload">
@@ -163,24 +123,6 @@
     </div>
   </div>
 
-  <!-- TAB: Scan -->
-  <div id="tab-scan" style="display:none">
-    <div class="scan-box">
-      <ol>
-        <li>Откройте <button class="folder-link-btn" onclick="openNoCaseFolder(event)">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-              папку «Без номера дела»
-            </button> через сетевой диск</li>
-        <li>Переименуйте нужные файлы прямо там: <code>Орг | ФИО | А73-12345-2026.pdf</code></li>
-        <li>Нажмите кнопку — сервер найдёт их и переместит в папки клиентов</li>
-      </ol>
-      <p>Файлы будут именно <strong>перемещены</strong> (исчезнут из исходной папки)</p>
-      <button class="btn btn-primary" id="scan-btn" onclick="scanBadFolders()">
-        Найти и переместить переименованные файлы
-      </button>
-    </div>
-  </div>
-
   <!-- Results -->
   <div id="results-section">
     <h2>Результат</h2>
@@ -199,31 +141,8 @@
   </div>
 </div>
 
-<!-- Path modal -->
-<div class="path-modal-overlay" id="path-modal" onclick="if(event.target===this)closePathModal()">
-  <div class="path-modal">
-    <h3 id="path-modal-title">Папка «Без номера дела»</h3>
-    <p id="path-modal-desc"></p>
-    <div class="path-box" id="path-modal-path" style="display:none"></div>
-    <div class="path-modal-actions">
-      <button class="btn-sm btn-copy" id="path-copy-btn" style="display:none" onclick="copyPath()">Скопировать путь</button>
-      <button class="btn-sm btn-close-sm" onclick="closePathModal()">Закрыть</button>
-    </div>
-  </div>
-</div>
-
 <script>
   let selectedFiles = [];
-  let currentPath = '';
-
-  function switchTab(tab) {
-    document.getElementById('tab-upload').style.display = tab === 'upload' ? '' : 'none';
-    document.getElementById('tab-scan').style.display  = tab === 'scan'   ? '' : 'none';
-    document.querySelectorAll('.tab').forEach((el, i) => {
-      el.classList.toggle('active', (i === 0 && tab === 'upload') || (i === 1 && tab === 'scan'));
-    });
-    resetResults();
-  }
 
   /* ---- Upload tab ---- */
   function onFilesSelected() {
@@ -282,23 +201,6 @@
     }
   }
 
-  /* ---- Scan tab ---- */
-  async function scanBadFolders() {
-    const btn = document.getElementById('scan-btn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Сканирование...';
-    try {
-      const res = await fetch('/files/scan-bad', { method: 'POST' });
-      if (!res.ok) throw new Error(await res.text());
-      showResults(await res.json());
-    } catch (e) {
-      alert('Ошибка: ' + e.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Найти и переместить переименованные файлы';
-    }
-  }
-
   /* ---- Shared results ---- */
   function showResults(results) {
     const doneCount  = results.filter(r => r.status === 'done').length;
@@ -327,56 +229,6 @@
     document.getElementById('results-body').innerHTML = '';
     document.getElementById('summary').innerHTML = '';
   }
-
-  /* ---- Folder link ---- */
-  async function openNoCaseFolder(e) {
-    e.preventDefault();
-    try {
-      const res = await fetch('/files/no-case-folder');
-      const data = await res.json();
-      const title = document.getElementById('path-modal-title');
-      const desc  = document.getElementById('path-modal-desc');
-      const pathBox  = document.getElementById('path-modal-path');
-      const copyBtn  = document.getElementById('path-copy-btn');
-
-      if (!data.exists) {
-        title.textContent = 'Папка не найдена';
-        desc.textContent  = 'Папка «Без номера дела» ещё не создана на сервере. Она появится автоматически, когда первый документ не сможет быть распознан.';
-        pathBox.style.display = 'none';
-        copyBtn.style.display = 'none';
-      } else if (!data.windows_path) {
-        title.textContent = 'Путь не настроен';
-        desc.textContent  = 'Папка существует на сервере, но сетевой путь не задан. Попросите администратора указать переменную SCAN_FILES_SHARE_URL в настройках сервиса.';
-        pathBox.style.display = 'none';
-        copyBtn.style.display = 'none';
-      } else {
-        title.textContent = 'Папка «Без номера дела»';
-        desc.textContent  = 'Скопируйте путь ниже и вставьте его в адресную строку Проводника Windows (или диалог «Выполнить» Win+R):';
-        currentPath = data.windows_path;
-        pathBox.textContent = currentPath;
-        pathBox.style.display = 'block';
-        copyBtn.style.display = 'inline-flex';
-      }
-      document.getElementById('path-modal').classList.add('open');
-    } catch (e) {
-      alert('Ошибка при проверке папки: ' + e.message);
-    }
-  }
-
-  function closePathModal() { document.getElementById('path-modal').classList.remove('open'); }
-
-  async function copyPath() {
-    try {
-      await navigator.clipboard.writeText(currentPath);
-      const btn = document.getElementById('path-copy-btn');
-      btn.textContent = 'Скопировано!';
-      setTimeout(() => { btn.textContent = 'Скопировать путь'; }, 2000);
-    } catch {
-      prompt('Скопируйте путь вручную:', currentPath);
-    }
-  }
-
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePathModal(); });
 
   function plural(n) {
     if (n%10===1 && n%100!==11) return 'файл';

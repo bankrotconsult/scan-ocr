@@ -82,12 +82,32 @@ CHECKS = (
     "     слово «Запросы» с заглавной буквы или «Реестр писем» с заглавными буквами → верни «Чеки»."
 )
 
+MOBILE_CARD = (
+    "Мобильная карта: если в начале документа (первые строки, шапка) встречается\n"
+    "     «Мобильная карта» (в любом регистре) → верни «Мобильная карта»."
+)
+
+YUMANI = (
+    "Юмани: если в начале документа (первые строки, шапка) встречается\n"
+    "     «Юмани» (в любом регистре) → верни «Юмани»."
+)
+
+TECHNADZOR = (
+    "Технадзор: если где угодно в тексте встречается фраза «по надзору за техническим\n"
+    "     состоянием самоходных машин» (в любом регистре) → верни «Технадзор»."
+)
+
+SOVKOMBANK_RTK = (
+    "Совкомбанк РТК: если где угодно в тексте встречается «Совкомбанк» (в любом регистре) →\n"
+    "     верни «Совкомбанк РТК»."
+)
+
 OTHER = (
     "Иначе — верни краткое название: ФСБ, СК, Росреестр, Прокуратура и т.п."
 )
 
 # Order defines letter assignment — change only here to reorder
 ORG_RULES: list[str] = [
-    CHECKS, MCS, ZAGS, RTK, COURT, GIBDD, FNS, SFR, FSSF, BANK, MVD,
-    ROSGVARDIA, BTI, CTI, ROSKADASTR, OTHER,
+    CHECKS, MCS, ZAGS, MOBILE_CARD, YUMANI, RTK, COURT, GIBDD, FNS, SFR, FSSF,
+    TECHNADZOR, SOVKOMBANK_RTK, BANK, MVD, ROSGVARDIA, BTI, CTI, ROSKADASTR, OTHER,
 ]
