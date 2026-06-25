@@ -10,7 +10,7 @@
     header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 24px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .brand { font-size: 15px; font-weight: 700; color: #6366f1; letter-spacing: .3px; }
     .main { flex: 1; display: flex; align-items: center; justify-content: center; }
-    .container { max-width: 800px; width: 100%; padding: 48px 24px 24px; }
+    .container { max-width: 800px; width: 100%; padding: 48px 24px 24px; position: relative; }
     .service-title { text-align: center; margin-bottom: 6px; }
     .service-title .genius { font-size: 36px; font-weight: 800; letter-spacing: -.5px; background: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .service-title .ai { font-size: 36px; font-weight: 800; letter-spacing: -.5px; color: #111; }
@@ -38,6 +38,20 @@
       margin-top: auto; display: flex; align-items: center; gap: 6px;
       font-size: 14px; font-weight: 500; color: #6366f1;
     }
+
+    /* ── Queue status indicator ── */
+    .queue-badge {
+      position: absolute; top: 14px; right: 0;
+      display: inline-flex; align-items: center; gap: 14px;
+      padding: 11px 20px; border-radius: 14px;
+      border: 2px solid transparent;
+      transition: background .4s, color .4s, box-shadow .4s, border-color .4s;
+      user-select: none; cursor: default; white-space: nowrap;
+    }
+    .queue-badge.idle { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; box-shadow: 0 2px 12px rgba(22,163,74,.10); }
+    .queue-badge.busy { background: #fef2f2; color: #dc2626; border-color: #fecaca; box-shadow: 0 2px 12px rgba(220,38,38,.12); }
+    .queue-text { font-size: 13px; font-weight: 500; opacity: .85; }
+    .queue-num  { font-size: 24px; font-weight: 800; line-height: 1; letter-spacing: -1px; min-width: 24px; text-align: right; }
 
     /* Help footnote */
     .footnote { text-align: center; margin-top: 36px; }
@@ -105,6 +119,10 @@
 
 <div class="main">
 <div class="container">
+  <div class="queue-badge idle" id="queue-badge">
+    <span class="queue-text">Документов в обработке:</span>
+    <span class="queue-num" id="queue-label">···</span>
+  </div>
   <div class="service-title"><span class="genius">genius</span><span class="ai">AI</span></div>
   <h1>Обработка документов</h1>
   <p class="subtitle">Выберите режим работы</p>
@@ -193,49 +211,59 @@
   <div class="modal">
     <button class="modal-close" onclick="closeHelp()">✕</button>
     <h2>Инструкция по работе с сервисом</h2>
-    <p class="modal-subtitle">Сервис автоматически распознаёт документы о банкротстве и раскладывает файлы по папкам клиентов.</p>
+    <p class="modal-subtitle">Сервис автоматически распознаёт документы через OCR и LLM и раскладывает файлы по папкам клиентов.</p>
 
     <h3>
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 9.414V19a2 2 0 01-2 2z"/></svg>
-      Режим 1 — Разбить и обработать PDF
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline stroke-linecap="round" stroke-linejoin="round" points="12 8 12 12 14 14"/></svg>
+      Индикатор очереди
     </h3>
-    <p>Используйте, когда у вас есть один большой PDF с несколькими документами разных клиентов.</p>
-    <ol>
-      <li>Нажмите <strong>«Разбить и обработать PDF»</strong> на главной странице</li>
-      <li>Загрузите PDF-файл (перетащите или нажмите «выберите файл»)</li>
-      <li>Перед вами появятся все страницы документа в виде миниатюр</li>
-      <li>Кликните на те страницы, с которых <strong>начинается каждый новый документ</strong> — они выделятся галочкой. Например: стр. 1 — Иванов, стр. 5 — Петров → выбираете стр. 1 и 5</li>
-      <li>Нажмите <strong>«Разделить и обработать»</strong></li>
-    </ol>
-    <div class="tip">Сервис автоматически распознает ФИО, номер дела и разложит файлы по папкам. Ждать не нужно — можно закрыть страницу.</div>
-    <p><strong>Просмотр страницы крупнее:</strong> удерживайте нажатие на миниатюру (~0,5 сек) — откроется увеличенный вид.</p>
-    <p>Лишние страницы (обложки, пустые) можно выбрать и нажать <strong>«Удалить выбранные»</strong> перед обработкой.</p>
+    <p>В правом верхнем углу главной страницы отображается индикатор состояния сервиса:</p>
+    <ul>
+      <li><strong>Зелёный, «0»</strong> — сервис свободен, все документы обработаны.</li>
+      <li><strong>Красный с числом</strong> — столько документов сейчас находится в очереди обработки.</li>
+    </ul>
+    <p style="margin-top:6px">Индикатор обновляется автоматически каждые 4 секунды.</p>
 
     <hr class="modal-divider">
 
     <h3>
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-      Режим 2 — Загрузить готовые файлы
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 9.414V19a2 2 0 01-2 2z"/></svg>
+      Разбить и обработать PDF
     </h3>
-    <p>Используйте, когда файлы уже переименованы вручную. Файл должен называться точно так:</p>
-    <p><code>Орг | Фамилия Имя Отчество | А73-12345-2026.pdf</code></p>
-    <p>Пример: <code>ФНС | Иванов Иван Иванович | А73-19762-2024.pdf</code></p>
-    <div class="warn">Разделитель — символ <strong>|</strong> (вертикальная черта) с пробелами вокруг. Все три части обязательны.</div>
-
-    <p><strong>Вкладка «Загрузить с компьютера»</strong></p>
+    <p>Используйте, когда у вас есть один большой PDF с документами нескольких клиентов.</p>
     <ol>
-      <li>Перетащите файлы в область или нажмите «Выберите» (можно выбрать несколько через Ctrl+клик)</li>
-      <li>Нажмите <strong>«Загрузить и разложить»</strong></li>
-      <li>Сервис проверит формат имени и разложит файлы по папкам клиентов</li>
+      <li>Нажмите <strong>«Разбить и обработать PDF»</strong> на главной странице</li>
+      <li>Загрузите PDF-файл (перетащите или нажмите «выберите файл»)</li>
+      <li>Все страницы появятся в виде миниатюр</li>
+      <li>Если есть лишние страницы (обложки, пустые) — выберите их и нажмите <strong>«Удалить выбранные»</strong> до следующего шага</li>
+      <li>Кликните на страницы, с которых <strong>начинается каждый новый документ</strong> — они выделятся галочкой.<br>Пример: стр.&nbsp;1 — Иванов, стр.&nbsp;5 — Петров → выбираете стр.&nbsp;1 и 5</li>
+      <li>Нажмите <strong>«Разделить и обработать»</strong> — можно закрыть страницу, сервис работает в фоне</li>
     </ol>
+    <div class="tip">Удерживайте миниатюру (~0,5 сек), чтобы просмотреть страницу в увеличенном виде.</div>
 
-    <p style="margin-top:12px"><strong>Вкладка «Сканировать папки сервера»</strong> — лучший способ, если файлы уже на сетевом диске</p>
-    <ol>
-      <li>Откройте папку <strong>«Без номера дела»</strong> через сетевой диск</li>
-      <li>Переименуйте там нужные файлы, дав им правильный формат</li>
-      <li>Нажмите <strong>«Найти и переместить переименованные файлы»</strong></li>
-    </ol>
-    <div class="tip">При сканировании файлы <strong>перемещаются</strong> (исчезают из «Без номера дела» и появляются в папке клиента). При загрузке с компьютера — оригинал на вашем компьютере остаётся.</div>
+    <hr class="modal-divider">
+
+    <h3>
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      Авто-сортировка файлов
+    </h3>
+    <p>После того как файлы переименованы в правильный формат, их можно одним нажатием отправить в папки клиентов через кнопку <strong>«Авто-сортировка»</strong>.</p>
+    <p style="margin-top:6px">Формат имени файла: <code>Орг | Фамилия Имя Отчество | А73-12345-2026.pdf</code></p>
+    <div class="warn">Разделитель — символ <strong>|</strong> с пробелами вокруг. Все три части обязательны.</div>
+    <p><strong>Папка «Без номера дела»:</strong> нажмите «Авто-сортировка» — сервис сам найдёт все файлы в правильном формате и переместит их в папки клиентов.</p>
+    <p style="margin-top:8px"><strong>Папка «Неизвестные номера дела»:</strong> выберите нужные файлы (или все сразу) прямо в интерфейсе, затем нажмите «Авто-сортировка» — переместятся только выбранные.</p>
+    <div class="tip">Файлы перемещаются: исчезают из исходной папки и появляются в папке клиента.</div>
+
+    <hr class="modal-divider">
+
+    <h3>
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Поиск клиентов и обновление данных
+    </h3>
+    <p>Раздел <strong>«Данные по клиентам»</strong> решает две задачи:</p>
+    <p style="margin-top:8px"><strong>Обновление базы клиентов:</strong> нажмите «Обновить данные» — сервис загрузит актуальный список из файла на Google Диске. Рекомендуется делать это перед началом загрузки новых документов.</p>
+    <div class="warn">Обновление доступно только когда сервис не обрабатывает документы — индикатор показывает «0» зелёным.</div>
+    <p><strong>Поиск клиента:</strong> введите в строку поиска часть ФИО (например, «Иван») или номер дела («А73-1234-2026») — результаты появятся мгновенно. Используйте поиск, когда нужно уточнить правильный номер дела или ФИО перед переименованием файла.</p>
 
     <hr class="modal-divider">
 
@@ -243,28 +271,30 @@
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
       Куда попадают файлы
     </h3>
-    <p>Все файлы раскладываются по такой структуре:</p>
+    <p>Успешно распознанные файлы раскладываются по структуре:</p>
     <p><code>Корневая папка / Год / Фамилия Имя Отчество А73-XXXXX-ГГГГ / Ответы /</code></p>
-    <p>Пример: <code>scan / 2024 / Иванов Иван Иванович А73-19762-2024 / Ответы / ФНС | Иванов Иван Иванович | А73-19762-2024.pdf</code></p>
+    <p style="margin-top:8px">Если распознать не удалось, файл попадает в одну из двух папок:</p>
+    <ul>
+      <li><strong>«Без номера дела»</strong> — номер дела не найден в тексте документа. Причины: нечёткий скан, документ не содержит номера, OCR не смог прочитать.</li>
+      <li><strong>«Неизвестные номера дела»</strong> — номер найден, но отсутствует в базе Банкротконсалт. Причины: дело ещё не внесено, опечатка в номере, нестандартный формат.</li>
+    </ul>
 
     <hr class="modal-divider">
 
     <h3>
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Что делать, если файл не распознан
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+      Корректировка файлов
     </h3>
-    <p>Если сервис не смог определить данные, файл попадает в одну из служебных папок:</p>
-    <ul>
-      <li><strong>«Без номера дела»</strong> — номер дела не найден в документе</li>
-      <li><strong>«Неизвестные номера дела»</strong> — номер есть, но не значится в базе Банкротконсалт</li>
-    </ul>
-    <p style="margin-top:8px">Дальнейшие действия:</p>
+    <p>Раздел <strong>«Корректировка файлов»</strong> — для ручной работы с нераспознанными документами.</p>
     <ol>
-      <li>Откройте нужную папку через сетевой диск</li>
-      <li>Посмотрите файл и определите правильные данные</li>
-      <li>Переименуйте файл: <code>Орг | ФИО | А73-12345-2026.pdf</code></li>
-      <li>Перейдите в <strong>«Загрузить готовые файлы»</strong> → вкладка «Сканировать папки сервера» → нажмите кнопку</li>
+      <li>Выберите папку: «Без номера дела» или «Неизвестные номера дела»</li>
+      <li>Кликните на файл — он откроется в просмотрщике справа</li>
+      <li>Заполните поля: организация, ФИО, номер дела (при необходимости воспользуйтесь поиском клиентов)</li>
+      <li>Нажмите <strong>«Сохранить»</strong> — файл переименуется автоматически</li>
+      <li>Затем нажмите <strong>«Авто-сортировка»</strong>, чтобы переместить файл в папку клиента</li>
     </ol>
+    <div class="tip">Если имя файла уже содержит данные в формате «Орг | ФИО | Дело», поля заполнятся автоматически.</div>
+    <p style="margin-top:8px">Если файл больше не нужен — нажмите значок корзины 🗑 напротив него для удаления.</p>
   </div>
 </div>
 
@@ -273,6 +303,25 @@
   function closeHelp() { document.getElementById('help-modal').classList.remove('open'); document.body.style.overflow = ''; }
   function onOverlayClick(e) { if (e.target === document.getElementById('help-modal')) closeHelp(); }
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
+
+  (function () {
+    const badge = document.getElementById('queue-badge');
+    const label = document.getElementById('queue-label');
+    async function updateQueue() {
+      try {
+        const r = await fetch('/files/queue-count');
+        const d = await r.json();
+        const n = d.count || 0;
+        badge.className   = n > 0 ? 'queue-badge busy' : 'queue-badge idle';
+        label.textContent = n;
+      } catch {
+        badge.className   = 'queue-badge idle';
+        label.textContent = '—';
+      }
+    }
+    updateQueue();
+    setInterval(updateQueue, 4000);
+  })();
 </script>
 </body>
 </html>

@@ -202,6 +202,18 @@ async def sync_sheet_page():
         return HTMLResponse(f.read())
 
 
+def _count_uploads(uploads_dir: str) -> int:
+    if not os.path.isdir(uploads_dir):
+        return 0
+    return sum(1 for e in os.listdir(uploads_dir) if os.path.isfile(os.path.join(uploads_dir, e)))
+
+
+@router.get("/queue-count")
+async def queue_count():
+    count = await asyncio.to_thread(_count_uploads, BaseConfig.UPLOADS_DIR)
+    return {"count": count}
+
+
 @router.get("/sync-sheet/status")
 async def sync_sheet_status():
     """Return upload-busy flag and cache freshness info."""
