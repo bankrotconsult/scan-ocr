@@ -40,6 +40,8 @@
     .file-item .file-icon { flex-shrink: 0; color: #9ca3af; }
     .file-item.selected .file-icon { color: #6366f1; }
     .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-delete-file { margin-left: auto; background: none; border: none; cursor: pointer; opacity: 0.35; font-size: 14px; padding: 0 4px; flex-shrink: 0; line-height: 1; }
+    .btn-delete-file:hover { opacity: 1; }
 
     .viewer-area { flex: 1; min-height: 0; overflow: hidden; position: relative; background: #f9fafb; display: flex; align-items: center; justify-content: center; }
     .viewer-placeholder { text-align: center; color: #9ca3af; font-size: 14px; }
@@ -326,6 +328,19 @@
   }
 
   // ── File list ──────────────────────────────────────────────────────
+  async function deleteFile(name) {
+    if (!confirm('Удалить файл «' + name + '»?')) return;
+    const r = await fetch(
+      '/files/delete-file?folder=' + encodeURIComponent(_currentFolder) + '&name=' + encodeURIComponent(name),
+      { method: 'DELETE' }
+    );
+    if (r.ok) {
+      loadFileList();
+    } else {
+      alert('Ошибка удаления файла');
+    }
+  }
+
   async function loadFileList() {
     const wrap = document.getElementById('file-list-wrap');
     wrap.innerHTML = '<div class="file-list-empty">Загрузка...</div>';
@@ -354,6 +369,7 @@
         <input type="checkbox" class="file-cb" data-name="${esc(f.name)}" onclick="event.stopPropagation()" onchange="onFileCbChange()">
         ${icon}
         <span class="file-name" title="${esc(f.name)}">${esc(f.name)}</span>
+        <button class="btn-delete-file" title="Удалить файл" onclick="event.stopPropagation(); deleteFile('${esc(f.name)}')">🗑</button>
       </div>`;
     }).join('');
   }

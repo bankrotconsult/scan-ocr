@@ -811,6 +811,8 @@ async def bad_folder_list(folder: str = "Без номера дела"):
         if not await asyncio.to_thread(os.path.isfile, full):
             continue
         stem, ext = os.path.splitext(name)
+        if ext.lower() != '.pdf':
+            continue
         parts = [p.strip() for p in stem.split("|")]
         org = parts[0] if len(parts) > 0 else ""
         fio = parts[1] if len(parts) > 1 else ""
@@ -851,6 +853,20 @@ async def rename_file_endpoint(body: RenameFileRequest):
     new_path = await asyncio.to_thread(_unique_dest_path, folder_path, new_stem, ext)
     await asyncio.to_thread(os.rename, old_path, new_path)
     return {"success": True, "new_name": os.path.basename(new_path)}
+
+
+@router.delete("/delete-file")
+async def delete_file_endpoint(folder: str, name: str):
+    if folder not in _BAD_FOLDERS:
+        raise HTTPException(status_code=400, detail="Invalid folder")
+    if "/" in name or "\\" in name or ".." in name:
+        raise HTTPException(status_code=400, detail="Invalid file name")
+    root = BaseConfig.SCAN_FILES_DIR
+    file_path = os.path.join(root, folder, name)
+    if not await asyncio.to_thread(os.path.isfile, file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    await asyncio.to_thread(os.remove, file_path)
+    return {"ok": True}
 
 
 @router.get(
