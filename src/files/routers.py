@@ -22,6 +22,7 @@ from src.llm import (
     OllamaService,
     apply_org_rules,
     extract_case_number,
+    extract_multi_entities,
     lookup_case_by_fio,
     lookup_case_by_lastname,
     lookup_person_by_case,
@@ -468,6 +469,132 @@ async def recover_uploads() -> None:
         task.add_done_callback(_recovery_tasks.discard)
 
 
+async def _run_ocr_multi(
+    file_id: int,
+    file_path: str,
+    org: str,
+    text: str,
+    blocks: list,
+    entities: list[dict],
+    t0: float,
+) -> None:
+    """Process a multi-entity document by creating one file copy per entity."""
+    root = BaseConfig.SCAN_FILES_DIR
+    ext = os.path.splitext(file_path)[1]
+    _c2f = load_case_to_fio()
+    _f2c = load_fio_to_cases()
+
+    first_dest_path: str | None = None
+    first_person: str = "UNKNOWN"
+    any_copied = False
+
+    for idx, entity in enumerate(entities):
+        person: str = entity.get("person") or "UNKNOWN"
+        case: str = entity.get("case") or "UNKNOWN"
+
+        if case != "UNKNOWN":
+            if case in _c2f:
+                person = _c2f[case]
+                print(f"[MULTI][CACHE] {case} → {person}")
+                dest_dir = _client_dest_dir(person, case, root)
+            else:
+                print(f"[MULTI][CACHE] {case} не найден → API")
+                api_person, found_in_db = await lookup_person_by_case(case)
+                if not found_in_db:
+                    dest_dir = os.path.join(root, _DIR_BAD_CASE)
+                else:
+                    if api_person:
+                        person = api_person
+                    if person == "UNKNOWN":
+                        dest_dir = os.path.join(root, _DIR_NO_PERSON)
+                    else:
+                        dest_dir = _client_dest_dir(person, case, root)
+        else:
+            fios = _split_fios(person) if person != "UNKNOWN" else []
+            cache_hit = False
+            for fio in fios:
+                if fio in _f2c:
+                    cases = _f2c[fio]
+                    if len(cases) == 1:
+                        case = cases[0]
+                        person = fio
+                        dest_dir = _client_dest_dir(person, case, root)
+                    else:
+                        dest_dir = os.path.join(root, _DIR_NO_CASE)
+                    cache_hit = True
+                    break
+            if not cache_hit:
+                for fio in fios:
+                    api_case, api_person = await lookup_case_by_fio(fio)
+                    if api_case:
+                        case = api_case
+                        person = api_person
+                        break
+                if case != "UNKNOWN":
+                    dest_dir = _client_dest_dir(person, case, root)
+                else:
+                    if person != "UNKNOWN":
+                        lastname = _extract_lastname_if_initials(person)
+                        if lastname:
+                            api_case, api_person = await lookup_case_by_lastname(lastname)
+                            if api_case:
+                                case = api_case
+                                if api_person:
+                                    person = api_person
+                    dest_dir = (
+                        _client_dest_dir(person, case, root)
+                        if case != "UNKNOWN"
+                        else os.path.join(root, _DIR_NO_CASE)
+                    )
+
+        if dest_dir == os.path.join(root, _DIR_NO_CASE):
+            _outcome = "no_case"
+        elif dest_dir == os.path.join(root, _DIR_BAD_CASE):
+            _outcome = "bad_case"
+        elif dest_dir == os.path.join(root, _DIR_NO_PERSON):
+            _outcome = "no_person"
+        else:
+            _outcome = "success"
+
+        person = _normalize_fio(person)
+        base_name = _make_filename(org, person, case)
+        try:
+            await asyncio.to_thread(os.makedirs, dest_dir, exist_ok=True)
+            dest_path = await asyncio.to_thread(_unique_dest_path, dest_dir, base_name, ext)
+            await asyncio.to_thread(shutil.copy2, file_path, dest_path)
+            any_copied = True
+            if first_dest_path is None:
+                first_dest_path = dest_path
+                first_person = person
+            _seconds = time.monotonic() - t0 if idx == 0 else None
+            try:
+                async with db_session() as s:
+                    await StatsService(StatsRepository(s)).increment(
+                        StatIncrementDTO(outcome=_outcome, seconds=_seconds)
+                    )
+            except Exception as _se:
+                print(f"[STATS] Ошибка записи: {_se}")
+        except Exception as e:
+            print(f"[MULTI] Ошибка копирования {person}/{case}: {e}")
+
+    await asyncio.to_thread(os.remove, file_path)
+
+    if any_copied and first_dest_path:
+        async with db_session() as s:
+            await FileService(FileRepository(s)).update_ocr_result(
+                file_id=file_id,
+                context=text,
+                context_blocks=json.dumps(blocks, ensure_ascii=False),
+                status="done",
+                name=os.path.basename(first_dest_path),
+                org=org,
+                person=first_person,
+            )
+    else:
+        async with db_session() as s:
+            await FileService(FileRepository(s)).update_ocr_result(file_id, "", "error")
+
+
 async def _run_ocr(file_id: int, file_path: str) -> None:
     _t0 = time.monotonic()
     try:
@@ -483,6 +610,11 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
                 print(f"[CASE] LLM hallucinated '{case_from_llm}' — not found in text, ignoring")
                 case_from_llm = "UNKNOWN"
         case = case_from_llm if case_from_llm != "UNKNOWN" else extract_case_number(text)
+
+        multi = extract_multi_entities(org, text, blocks)
+        if multi and len(multi) > 1:
+            await _run_ocr_multi(file_id, file_path, org, text, blocks, multi, _t0)
+            return
 
         root = BaseConfig.SCAN_FILES_DIR
 
