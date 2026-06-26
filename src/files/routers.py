@@ -734,7 +734,12 @@ async def _run_ocr(file_id: int, file_path: str) -> None:
     except Exception as e:
         print(f"OCR error for file {file_id}: {e}")
         if await asyncio.to_thread(os.path.exists, file_path):
-            await asyncio.to_thread(os.remove, file_path)
+            root = BaseConfig.SCAN_FILES_DIR
+            dest_dir = os.path.join(root, _DIR_NO_CASE)
+            await asyncio.to_thread(os.makedirs, dest_dir, exist_ok=True)
+            stem, ext = os.path.splitext(os.path.basename(file_path))
+            dest_path = await asyncio.to_thread(_unique_dest_path, dest_dir, stem, ext)
+            await asyncio.to_thread(shutil.move, file_path, dest_path)
         async with db_session() as s:
             await FileService(FileRepository(s)).update_ocr_result(file_id, "", "error")
         try:
