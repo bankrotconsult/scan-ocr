@@ -453,6 +453,14 @@ async def recover_uploads() -> None:
                     FileCreateDTO(name=original_name, status="pending")
                 )
             file_id = record.id
+            # Переименовываем temp-файл в формат {id}_{filename}, чтобы следующий цикл
+            # распознал его по id и не создавал дубликат записи (идемпотентность).
+            new_temp_path = os.path.join(uploads_dir, f"{file_id}_{original_name}")
+            try:
+                await asyncio.to_thread(os.rename, file_path, new_temp_path)
+                file_path = new_temp_path
+            except OSError:
+                pass  # переименование не критично: следующий цикл повторит создание
         else:
             try:
                 async with db_session() as s:
