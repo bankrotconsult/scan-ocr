@@ -1,6 +1,6 @@
 from dataclasses import asdict
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from src.files.dto import FileResponseDTO, FileCreateDTO
 from src.files.models import File
@@ -36,6 +36,15 @@ class FileRepository(SQLAlchemyRepository):
         result = await self.session.execute(select(self.model))
         files = result.scalars().all()
         return [self.create_file_dto(f) for f in files]
+
+    async def count_active(self) -> int:
+        """Подсчёт файлов, ожидающих или находящихся в обработке (для счётчика очереди)."""
+        result = await self.session.execute(
+            select(func.count(self.model.id)).where(
+                self.model.status.in_(["pending", "processing"])
+            )
+        )
+        return result.scalar() or 0
 
     async def mark_all_pending_error(self) -> int:
         result = await self.session.execute(

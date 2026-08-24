@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -10,12 +11,35 @@ from src.config.base import BaseConfig
 
 _INDEX_PATH = os.path.join(os.path.dirname(__file__), "templates", "index.html")
 
+# Интервал периодического восстановления осиротевших файлов в uploads/
+RECOVERY_INTERVAL_SEC = 60 * 5
+
+
+async def _recovery_loop() -> None:
+    """Периодически запускать recover_uploads, чтобы орфаны подхватывались без рестарта контейнера."""
+    from src.files.routers import recover_uploads
+
+    while True:
+        try:
+            await recover_uploads()
+        except asyncio.CancelledError:
+            raise
+        except Exception as _e:
+            print(f"[RECOVERY] Ошибка цикла: {_e!r}", flush=True)
+        await asyncio.sleep(RECOVERY_INTERVAL_SEC)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from src.files.routers import recover_uploads
     await recover_uploads()
-    yield
+
+    recovery_task = asyncio.create_task(_recovery_loop())
+    try:
+        yield
+    finally:
+        recovery_task.cancel()
+        await asyncio.gather(recovery_task, return_exceptions=True)
 
 
 app = FastAPI(lifespan=lifespan)

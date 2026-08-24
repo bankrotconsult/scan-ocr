@@ -15,6 +15,9 @@ class FileService:
     async def get_all(self) -> list[FileResponseDTO]:
         return await self.file_repository.get_all()
 
+    async def count_active(self) -> int:
+        return await self.file_repository.count_active()
+
     async def mark_all_pending_error(self) -> int:
         return await self.file_repository.mark_all_pending_error()
 

@@ -178,9 +178,13 @@ async def upload_named_files(files: list[UploadFile] = FormFile(...)):
             except Exception as _se:
                 print(f"[STATS] Ошибка записи: {_se}")
         except Exception as e:
+            results.append({"name": original_name, "status": "error", "dest": str(e)})
+        finally:
+            # Удаляем temp-файл при ЛЮБОМ исходе, включая отмену запроса
+            # (asyncio.CancelledError наследуется от BaseException, а не Exception,
+            # поэтому блок except Exception его не ловит).
             if await asyncio.to_thread(os.path.exists, temp_path):
                 await asyncio.to_thread(os.remove, temp_path)
-            results.append({"name": original_name, "status": "error", "dest": str(e)})
 
     return results
 
@@ -202,15 +206,13 @@ async def sync_sheet_page():
         return HTMLResponse(f.read())
 
 
-def _count_uploads(uploads_dir: str) -> int:
-    if not os.path.isdir(uploads_dir):
-        return 0
-    return sum(1 for e in os.listdir(uploads_dir) if os.path.isfile(os.path.join(uploads_dir, e)))
-
-
 @router.get("/queue-count")
 async def queue_count():
-    count = await asyncio.to_thread(_count_uploads, BaseConfig.UPLOADS_DIR)
+    # Счётчик очереди считается по БД (реально ожидающие/в обработке записи),
+    # а не по количеству файлов в uploads/ — файлы там могут оставаться
+    # орфанами и навсегда завышать счётчик.
+    async with db_session() as s:
+        count = await FileService(FileRepository(s)).count_active()
     return {"count": count}
 
 
@@ -457,6 +459,12 @@ async def recover_uploads() -> None:
                     record = await FileService(FileRepository(s)).get_one({"id": file_id})
             except Exception:
                 print(f"[RECOVERY] Пропускаем {temp_name}: запись id={file_id} не найдена в БД", flush=True)
+                continue
+
+            if record.status == "pending":
+                # Свежая загрузка через /upload: задача уже в фоне, повторная
+                # обработка запустит дубликат — пропускаем.
+                print(f"[RECOVERY] {temp_name}: статус pending, пропускаем", flush=True)
                 continue
 
             if record.status == "done":
