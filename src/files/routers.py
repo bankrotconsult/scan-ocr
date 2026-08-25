@@ -7,6 +7,13 @@ import time
 import uuid
 from dataclasses import asdict
 
+# UUID-паттерн: {uuid}.pdf — файлы с чистым UUID-именем (temp-файлы split-модуля,
+# segment-файлы от split_pdf). recover_uploads не должен их трогать, так как они
+# либо активны в пайплайне split, либо уже имеют DB-запись (segment-файлы).
+_SPLIT_UUID_RE = re.compile(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+)
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, status
 from fastapi import File as FormFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -437,6 +444,14 @@ async def recover_uploads() -> None:
     for temp_name in entries:
         file_path = os.path.join(uploads_dir, temp_name)
         underscore = temp_name.find("_")
+
+        # Пропускаем файлы с чистым UUID-именем — это temp-файлы split-модуля или
+        # сегменты от split_pdf, которые не нужно обрабатывать recover_uploads.
+        # (UUID-файлы от /files/named предотвращены finally-блоком в upload_named_files.)
+        basename = os.path.splitext(temp_name)[0]
+        if _SPLIT_UUID_RE.match(basename):
+            print(f"[RECOVERY] Пропускаем split-файл: {temp_name}", flush=True)
+            continue
 
         file_id: int | None = None
         if underscore != -1:
